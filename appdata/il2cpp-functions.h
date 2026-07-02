@@ -414,8 +414,6 @@ DO_APP_FUNC(void, MapBehaviour_ShowSabotageMap, (MapBehaviour* __this, MethodInf
 DO_APP_FUNC(void, MapBehaviour_Close, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::Close()");
 DO_APP_FUNC(void, MapBehaviour_OnEnable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnEnable()");
 DO_APP_FUNC(void, MapBehaviour_OnDisable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnDisable()");
-DO_APP_FUNC(void, MapBehaviour_Update, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::Update()");
-DO_APP_FUNC(void, MapBehaviour_FixedUpdate, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::FixedUpdate()");
 DO_APP_FUNC(void, InnerNetClient_SendLateRejection, (InnerNetClient* __this, int32_t targetId, DisconnectReasons__Enum reason, MethodInfo* method), "Assembly-CSharp, System.Void InnerNet.InnerNetClient::SendLateRejection(System.Int32, DisconnectReasons)");
 DO_APP_FUNC(void, BanMenu_Select, (BanMenu* __this, int32_t clientId, MethodInfo* method), "Assembly-CSharp, System.Void BanMenu::Select(System.Int32)");
 DO_APP_FUNC(ClientData*, InnerNetClient_GetRecentClient, (InnerNetClient* __this, int32_t clientId, MethodInfo* method), "Assembly-CSharp, InnerNet.ClientData InnerNet.InnerNetClient::GetRecentClient(System.Int32)");

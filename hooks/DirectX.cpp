@@ -70,9 +70,21 @@ static bool CanDrawRadar()
     return !State.PanicMode && IsInGame() && State.ShowRadar && (!State.InMeeting || !State.HideRadar_During_Meetings);
 }
 
+static bool IsChatOpen()
+{
+    auto hud = Game::HudManager.GetInstance();
+    if (hud == nullptr || hud->fields.Chat == nullptr)
+        return false;
+
+    auto chatState = hud->fields.Chat->fields.state;
+    return chatState == ChatControllerState__Enum::Open ||
+        chatState == ChatControllerState__Enum::Opening ||
+        chatState == ChatControllerState__Enum::Closing;
+}
+
 static bool CanDrawMapPlayers()
 {
-    return !State.PanicMode && IsInGame() && State.ShowRadar_OthersInMap && (State.IsNormalMapOpen || State.IsAdminMapOpen);
+    return !State.PanicMode && IsInGame() && State.ShowRadar_OthersInMap && State.IsNormalMapOpen && !IsChatOpen();
 }
 
 static bool CanDrawReplay()
@@ -132,9 +144,9 @@ LRESULT __stdcall dWndProc(const HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
         return true;
 
-    if ((IsInGame() || IsInLobby()) && Game::HudManager.GetInstance()->fields.Chat != NULL && shouldKeybindsActivate) {
-        auto chatState = Game::HudManager.GetInstance()->fields.Chat->fields.state;
-        bool chatOpen = chatState == ChatControllerState__Enum::Open || chatState == ChatControllerState__Enum::Opening || chatState == ChatControllerState__Enum::Closing;
+    auto hud = Game::HudManager.GetInstance();
+    if ((IsInGame() || IsInLobby()) && hud != nullptr && hud->fields.Chat != NULL && shouldKeybindsActivate) {
+        bool chatOpen = IsChatOpen();
         bool isScrollModifierAllowed = !chatOpen && !State.InMeeting;
 
         if (isScrollModifierAllowed && State.EnableZoom && (IsInGame() || IsInLobby())) {

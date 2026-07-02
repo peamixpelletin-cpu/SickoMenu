@@ -394,16 +394,6 @@ void dMapBehaviour_OnDisable(MapBehaviour* __this, MethodInfo* method) {
     MapBehaviour_OnDisable(__this, method);
 }
 
-void dMapBehaviour_Update(MapBehaviour* __this, MethodInfo* method) {
-    State.IsNormalMapOpen = true;
-    MapBehaviour_Update(__this, method);
-}
-
-void dMapBehaviour_FixedUpdate(MapBehaviour* __this, MethodInfo* method) {
-    State.IsNormalMapOpen = true;
-    MapBehaviour_FixedUpdate(__this, method);
-}
-
 void* dIntroCutscene_ShowTeam(IntroCutscene* __this, List_1_PlayerControl_* teamToShow, float duration, MethodInfo* method) {
     if (State.ShowHookLogs) LOG_DEBUG("Hook dIntroCutscene_ShowTeam executed");
     return IntroCutscene_ShowTeam(__this, teamToShow, duration, method);

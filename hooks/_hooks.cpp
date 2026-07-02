@@ -253,8 +253,6 @@ void DetourInitilization() {
 	OPTIONAL_HOOKFUNC(MapBehaviour_Close);
 	OPTIONAL_HOOKFUNC(MapBehaviour_OnEnable);
 	OPTIONAL_HOOKFUNC(MapBehaviour_OnDisable);
-	OPTIONAL_HOOKFUNC(MapBehaviour_Update);
-	OPTIONAL_HOOKFUNC(MapBehaviour_FixedUpdate);
 	HOOKFUNC(BanMenu_Select);
 	HOOKFUNC(IntroCutscene_ShowTeam);
 	HOOKFUNC(LogicOptionsHnS_GetCrewmateLeadTime);
@@ -437,8 +435,6 @@ void DetourUninitialization()
 	OPTIONAL_UNHOOKFUNC(MapBehaviour_Close);
 	OPTIONAL_UNHOOKFUNC(MapBehaviour_OnEnable);
 	OPTIONAL_UNHOOKFUNC(MapBehaviour_OnDisable);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_Update);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_FixedUpdate);
 	UNHOOKFUNC(BanMenu_Select);
 	UNHOOKFUNC(IntroCutscene_ShowTeam);
 	UNHOOKFUNC(LogicOptionsHnS_GetCrewmateLeadTime);

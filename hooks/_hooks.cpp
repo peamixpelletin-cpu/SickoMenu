@@ -24,6 +24,7 @@ bool HookFunction(PVOID* ppPointer, PVOID pDetour, const char* functionName) {
 }
 
 #define HOOKFUNC(n) if (!HookFunction(&(PVOID&)n, d ## n, #n)) return;
+#define OPTIONAL_HOOKFUNC(n) if (n && !HookFunction(&(PVOID&)n, d ## n, #n)) return;
 
 bool UnhookFunction(PVOID* ppPointer, PVOID pDetour, const char* functionName) {
 	if (const auto error = DetourDetach(ppPointer, pDetour); error != NO_ERROR) {
@@ -35,6 +36,7 @@ bool UnhookFunction(PVOID* ppPointer, PVOID pDetour, const char* functionName) {
 }
 
 #define UNHOOKFUNC(n) if (!UnhookFunction(&(PVOID&)n, d ## n, #n)) return;
+#define OPTIONAL_UNHOOKFUNC(n) if (n && !UnhookFunction(&(PVOID&)n, d ## n, #n)) return;
 
 void DetourInitilization() {
 	DetourTransactionBegin();
@@ -245,6 +247,14 @@ void DetourInitilization() {
 	HOOKFUNC(PlayerControl_OnDestroy);
 	HOOKFUNC(MapCountOverlay_OnEnable);
 	HOOKFUNC(MapCountOverlay_OnDisable);
+	OPTIONAL_HOOKFUNC(MapBehaviour_ShowNormalMap);
+	OPTIONAL_HOOKFUNC(MapBehaviour_ShowInfectedMap);
+	OPTIONAL_HOOKFUNC(MapBehaviour_ShowSabotageMap);
+	OPTIONAL_HOOKFUNC(MapBehaviour_Close);
+	OPTIONAL_HOOKFUNC(MapBehaviour_OnEnable);
+	OPTIONAL_HOOKFUNC(MapBehaviour_OnDisable);
+	OPTIONAL_HOOKFUNC(MapBehaviour_Update);
+	OPTIONAL_HOOKFUNC(MapBehaviour_FixedUpdate);
 	HOOKFUNC(BanMenu_Select);
 	HOOKFUNC(IntroCutscene_ShowTeam);
 	HOOKFUNC(LogicOptionsHnS_GetCrewmateLeadTime);
@@ -421,6 +431,14 @@ void DetourUninitialization()
 	UNHOOKFUNC(PlayerControl_OnDestroy);
 	UNHOOKFUNC(MapCountOverlay_OnEnable);
 	UNHOOKFUNC(MapCountOverlay_OnDisable);
+	OPTIONAL_UNHOOKFUNC(MapBehaviour_ShowNormalMap);
+	OPTIONAL_UNHOOKFUNC(MapBehaviour_ShowInfectedMap);
+	OPTIONAL_UNHOOKFUNC(MapBehaviour_ShowSabotageMap);
+	OPTIONAL_UNHOOKFUNC(MapBehaviour_Close);
+	OPTIONAL_UNHOOKFUNC(MapBehaviour_OnEnable);
+	OPTIONAL_UNHOOKFUNC(MapBehaviour_OnDisable);
+	OPTIONAL_UNHOOKFUNC(MapBehaviour_Update);
+	OPTIONAL_UNHOOKFUNC(MapBehaviour_FixedUpdate);
 	UNHOOKFUNC(BanMenu_Select);
 	UNHOOKFUNC(IntroCutscene_ShowTeam);
 	UNHOOKFUNC(LogicOptionsHnS_GetCrewmateLeadTime);

@@ -408,6 +408,14 @@ DO_APP_FUNC(bool, PlayerControl_IsFlashlightEnabled, (PlayerControl* __this, Met
 DO_APP_FUNC(void, PlayerControl_OnDestroy, (PlayerControl* __this, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::OnDestroy()");
 DO_APP_FUNC(void, MapCountOverlay_OnEnable, (MapCountOverlay* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapCountOverlay::OnEnable()");
 DO_APP_FUNC(void, MapCountOverlay_OnDisable, (MapCountOverlay* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapCountOverlay::OnDisable()");
+DO_APP_FUNC(void, MapBehaviour_ShowNormalMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowNormalMap()");
+DO_APP_FUNC(void, MapBehaviour_ShowInfectedMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowInfectedMap()");
+DO_APP_FUNC(void, MapBehaviour_ShowSabotageMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowSabotageMap()");
+DO_APP_FUNC(void, MapBehaviour_Close, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::Close()");
+DO_APP_FUNC(void, MapBehaviour_OnEnable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnEnable()");
+DO_APP_FUNC(void, MapBehaviour_OnDisable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnDisable()");
+DO_APP_FUNC(void, MapBehaviour_Update, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::Update()");
+DO_APP_FUNC(void, MapBehaviour_FixedUpdate, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::FixedUpdate()");
 DO_APP_FUNC(void, InnerNetClient_SendLateRejection, (InnerNetClient* __this, int32_t targetId, DisconnectReasons__Enum reason, MethodInfo* method), "Assembly-CSharp, System.Void InnerNet.InnerNetClient::SendLateRejection(System.Int32, DisconnectReasons)");
 DO_APP_FUNC(void, BanMenu_Select, (BanMenu* __this, int32_t clientId, MethodInfo* method), "Assembly-CSharp, System.Void BanMenu::Select(System.Int32)");
 DO_APP_FUNC(ClientData*, InnerNetClient_GetRecentClient, (InnerNetClient* __this, int32_t clientId, MethodInfo* method), "Assembly-CSharp, InnerNet.ClientData InnerNet.InnerNetClient::GetRecentClient(System.Int32)");

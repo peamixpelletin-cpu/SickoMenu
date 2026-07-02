@@ -482,6 +482,7 @@ public:
     bool ChatFocused = false;
     bool IsRevived = false;
     bool IsAdminMapOpen = false;
+    bool IsNormalMapOpen = false;
 
     std::string chatMessage = "";
     std::string userName = "";

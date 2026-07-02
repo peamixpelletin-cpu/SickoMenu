@@ -97,6 +97,8 @@ static void onGameEnd() {
         State.OutfitCooldown = 50;
         State.CanChangeOutfit = false;
         State.GameLoaded = false;
+        State.IsAdminMapOpen = false;
+        State.IsNormalMapOpen = false;
         State.RealRole = RoleTypes__Enum::Crewmate;
         State.mapType = Settings::MapType::Ship;
         State.SpeedrunTimer = 0.f;

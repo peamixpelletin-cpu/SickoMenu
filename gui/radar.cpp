@@ -64,6 +64,10 @@ namespace Radar {
 		return ImVec2(origin.x + radX * mapScale, origin.y + radY * mapScale);
 	}
 
+	static float GetFullMapPlayerIconSize(float mapScale) {
+		return (std::clamp)(13.f * mapScale, 28.f, 78.f);
+	}
+
 	static void DrawMapPlayerDot(ImDrawList* drawList, PlayerControl* player, NetworkedPlayerInfo* playerData, const Vector2& worldPosition, const ImVec2& origin, float mapScale) {
 		const ImVec2 center = WorldToMapScreenPosition(worldPosition, origin, mapScale);
 		const float radius = 4.5f * mapScale;
@@ -85,32 +89,24 @@ namespace Radar {
 	}
 
 	static void DrawMapPlayerIcon(ImDrawList* drawList, PlayerControl* player, NetworkedPlayerInfo* playerData, const Vector2& worldPosition, const ImVec2& origin, float mapScale) {
-		const auto& map = maps[(size_t)State.mapType];
-		const float xOffset = getMapXOffsetSkeld(map.x_offset);
-		const float yOffset = map.y_offset;
-
 		IconTexture icon = icons.at(ICON_TYPES::PLAYER);
 		IconTexture visor = icons.at(ICON_TYPES::PLAYERVISOR);
-		const float halfImageWidth = icon.iconImage.imageWidth * icon.scale * 0.5f;
-		const float halfImageHeight = icon.iconImage.imageHeight * icon.scale * 0.5f;
-		const float radX = xOffset + (worldPosition.x - halfImageWidth) * map.scale;
-		const float radY = yOffset - (worldPosition.y - halfImageHeight) * map.scale;
-		const float radXMax = xOffset + (worldPosition.x + halfImageWidth) * map.scale;
-		const float radYMax = yOffset - (worldPosition.y + halfImageHeight) * map.scale;
-
-		const ImVec2 p_min(origin.x + radX * mapScale, origin.y + radY * mapScale);
-		const ImVec2 p_max(origin.x + radXMax * mapScale, origin.y + radYMax * mapScale);
+		const ImVec2 center = WorldToMapScreenPosition(worldPosition, origin, mapScale);
+		const float iconSize = GetFullMapPlayerIconSize(mapScale);
+		const ImVec2 halfSize(iconSize * 0.5f, iconSize * 0.5f);
+		const ImVec2 p_min(center.x - halfSize.x, center.y - halfSize.y);
+		const ImVec2 p_max(center.x + halfSize.x, center.y + halfSize.y);
 
 		drawList->AddImage((void*)icon.iconImage.shaderResourceView,
 			p_min, p_max,
-			ImVec2(0.0f, 1.0f),
-			ImVec2(1.0f, 0.0f),
+			ImVec2(0.0f, 0.0f),
+			ImVec2(1.0f, 1.0f),
 			GetRadarPlayerColor(playerData));
 
 		drawList->AddImage((void*)visor.iconImage.shaderResourceView,
 			p_min, p_max,
-			ImVec2(0.0f, 1.0f),
-			ImVec2(1.0f, 0.0f),
+			ImVec2(0.0f, 0.0f),
+			ImVec2(1.0f, 1.0f),
 			(State.RevealRoles && playerData->fields.Role) ?
 			ImGui::GetColorU32(AmongUsColorToImVec4(GetRoleColor(playerData->fields.Role))) :
 			ImGui::GetColorU32(AmongUsColorToImVec4(Palette__TypeInfo->static_fields->VisorColor)));
@@ -118,7 +114,7 @@ namespace Radar {
 		if (playerData->fields.IsDead)
 			drawList->AddImage((void*)icons.at(ICON_TYPES::CROSS).iconImage.shaderResourceView,
 				p_min, p_max,
-				ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f), IM_COL32_WHITE);
+				ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), IM_COL32_WHITE);
 	}
 
 	static void CaptureMapPlayerPositionsInternal() {
@@ -335,10 +331,7 @@ namespace Radar {
 				continue;
 
 			const Vector2& playerPosition = mapPlayerPositions[playerId];
-			if (State.RadarDrawIcons)
-				DrawMapPlayerIcon(drawList, player, playerData, playerPosition, mapOrigin, mapScale);
-			else
-				DrawMapPlayerDot(drawList, player, playerData, playerPosition, mapOrigin, mapScale);
+			DrawMapPlayerIcon(drawList, player, playerData, playerPosition, mapOrigin, mapScale);
 		}
 
 		ImGui::End();

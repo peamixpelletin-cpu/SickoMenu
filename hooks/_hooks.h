@@ -156,6 +156,14 @@ bool dPlayerControl_IsFlashlightEnabled(PlayerControl* __this, MethodInfo* metho
 void dPlayerControl_OnDestroy(PlayerControl* __this, MethodInfo* method);
 void dMapCountOverlay_OnEnable(MapCountOverlay* __this, MethodInfo* method);
 void dMapCountOverlay_OnDisable(MapCountOverlay* __this, MethodInfo* method);
+void dMapBehaviour_ShowNormalMap(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_ShowInfectedMap(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_ShowSabotageMap(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_Close(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_OnEnable(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_OnDisable(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_Update(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_FixedUpdate(MapBehaviour* __this, MethodInfo* method);
 void dBanMenu_Select(BanMenu* __this, int32_t clientId, MethodInfo* method);
 void* dIntroCutscene_ShowTeam (IntroCutscene* __this, List_1_PlayerControl_* teamToShow, float duration, MethodInfo* method);
 int32_t dLogicOptionsHnS_GetCrewmateLeadTime(LogicOptionsHnS* __this, MethodInfo* method);

@@ -72,7 +72,7 @@ static bool CanDrawRadar()
 
 static bool CanDrawMapPlayers()
 {
-    return !State.PanicMode && IsInGame() && State.ShowRadar_OthersInMap && State.IsAdminMapOpen;
+    return !State.PanicMode && IsInGame() && State.ShowRadar_OthersInMap && (State.IsNormalMapOpen || State.IsAdminMapOpen);
 }
 
 static bool CanDrawReplay()

@@ -108,14 +108,14 @@ namespace Radar {
 
 		drawList->AddImage((void*)icon.iconImage.shaderResourceView,
 			p_min, p_max,
-			ImVec2(0.0f, 1.0f),
 			ImVec2(1.0f, 0.0f),
+			ImVec2(0.0f, 1.0f),
 			GetRadarPlayerColor(playerData));
 
 		drawList->AddImage((void*)visor.iconImage.shaderResourceView,
 			p_min, p_max,
-			ImVec2(0.0f, 1.0f),
 			ImVec2(1.0f, 0.0f),
+			ImVec2(0.0f, 1.0f),
 			(State.RevealRoles && playerData->fields.Role) ?
 			ImGui::GetColorU32(AmongUsColorToImVec4(GetRoleColor(playerData->fields.Role))) :
 			ImGui::GetColorU32(AmongUsColorToImVec4(Palette__TypeInfo->static_fields->VisorColor)));
@@ -123,7 +123,7 @@ namespace Radar {
 		if (playerData->fields.IsDead)
 			drawList->AddImage((void*)icons.at(ICON_TYPES::CROSS).iconImage.shaderResourceView,
 				p_min, p_max,
-				ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f), IM_COL32_WHITE);
+				ImVec2(1.0f, 0.0f), ImVec2(0.0f, 1.0f), IM_COL32_WHITE);
 	}
 
 	static void DrawMapDeadBodyIcon(ImDrawList* drawList, DeadBody* deadBody, NetworkedPlayerInfo* playerData, const ImVec2& origin, float mapScale) {
@@ -139,8 +139,8 @@ namespace Radar {
 
 		drawList->AddImage((void*)icon.iconImage.shaderResourceView,
 			p_min, p_max,
-			ImVec2(0.0f, 1.0f),
-			ImVec2(1.0f, 0.0f),
+			ImVec2(0.0f, 0.0f),
+			ImVec2(1.0f, 1.0f),
 			GetMapDeadBodyColor(playerData));
 	}
 

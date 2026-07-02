@@ -5,8 +5,40 @@
 
 using namespace std::string_view_literals;
 
+
+static bool IsHardPinnedDoor(OpenableDoor* door) {
+    if (door == nullptr || State.PanicMode)
+        return false;
+
+    const bool isAirshipOrPolus = State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb;
+    return isAirshipOrPolus &&
+        std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), door->fields.Room) != State.pinnedDoors.end();
+}
+
+static void CloseDoorLocally(OpenableDoor* door) {
+    if (door == nullptr || door->klass == nullptr)
+        return;
+
+    if ("PlainDoor"sv == door->klass->name || (door->klass->parent != nullptr && "PlainDoor"sv == door->klass->parent->name))
+        app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), false, nullptr);
+    else if ("MushroomWallDoor"sv == door->klass->name)
+        app::MushroomWallDoor_SetDoorway(reinterpret_cast<MushroomWallDoor*>(door), false, nullptr);
+}
+
 static bool OpenDoor(OpenableDoor* door) {
-    if ("PlainDoor"sv == door->klass->name) {
+    if (door == nullptr)
+        return false;
+
+    if (IsHardPinnedDoor(door)) {
+        // Auto-open minigames call app::SetDoorway directly and used to bypass
+        // dPlainDoor_SetDoorway/dMushroomWallDoor_SetDoorway. Treat hard-pinned
+        // doors as handled, but never emit the open RPC.
+        CloseDoorLocally(door);
+        State.rpcQueue.push(new RpcCloseDoorsOfType(door->fields.Room, false));
+        return true;
+    }
+
+    if ("PlainDoor"sv == door->klass->name || (door->klass->parent != nullptr && "PlainDoor"sv == door->klass->parent->name)) {
         app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), true, {});
     }
     else if ("MushroomWallDoor"sv == door->klass->name) {

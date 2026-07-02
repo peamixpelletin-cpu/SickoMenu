@@ -6,7 +6,12 @@
 void dPlainDoor_SetDoorway(PlainDoor* __this, bool open, MethodInfo* method) {
 	if (State.ShowHookLogs) LOG_DEBUG("Hook dPlainDoor_SetDoorway executed");
 	if (open && (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), __this->fields._.Room) != State.pinnedDoors.end())) {
+		// Close locally for instant feedback before the RPC round-trips back
+		app::PlainDoor_SetDoorway(__this, false, method);
+		// Also send the system update so the door's networked state is closed immediately
+		ShipStatus_RpcUpdateSystem(*Game::pShipStatus, SystemTypes__Enum::Doors, (uint8_t)(__this->fields._.Id & ~64), NULL);
 		ShipStatus_RpcCloseDoorsOfType(*Game::pShipStatus, __this->fields._.Room, NULL);
+		return;
 	}
 	app::PlainDoor_SetDoorway(__this, open, method);
 }
@@ -14,7 +19,12 @@ void dPlainDoor_SetDoorway(PlainDoor* __this, bool open, MethodInfo* method) {
 void dMushroomWallDoor_SetDoorway(MushroomWallDoor* __this, bool open, MethodInfo* method) {
 	if (State.ShowHookLogs) LOG_DEBUG("Hook dMushroomWallDoor_SetDoorway executed");
 	if (open && (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), __this->fields._.Room) != State.pinnedDoors.end())) {
+		// Close locally for instant feedback before the RPC round-trips back
+		app::MushroomWallDoor_SetDoorway(__this, false, method);
+		// Also send the system update so the door's networked state is closed immediately
+		ShipStatus_RpcUpdateSystem(*Game::pShipStatus, SystemTypes__Enum::Doors, (uint8_t)(__this->fields._.Id & ~64), NULL);
 		ShipStatus_RpcCloseDoorsOfType(*Game::pShipStatus, __this->fields._.Room, NULL);
+		return;
 	}
 	app::MushroomWallDoor_SetDoorway(__this, open, method);
 }

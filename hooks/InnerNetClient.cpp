@@ -24,8 +24,37 @@ static std::string strToLower(std::string str) {
     return new_str;
 }
 
+
+static bool IsHardPinnedDoor(OpenableDoor* door) {
+    if (door == nullptr || State.PanicMode)
+        return false;
+
+    const bool isAirshipOrPolus = State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb;
+    return isAirshipOrPolus &&
+        std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), door->fields.Room) != State.pinnedDoors.end();
+}
+
+static void CloseDoorLocally(OpenableDoor* door) {
+    if (door == nullptr || door->klass == nullptr)
+        return;
+
+    if ("PlainDoor"sv == door->klass->name || (door->klass->parent != nullptr && "PlainDoor"sv == door->klass->parent->name))
+        app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), false, nullptr);
+    else if ("MushroomWallDoor"sv == door->klass->name)
+        app::MushroomWallDoor_SetDoorway(reinterpret_cast<MushroomWallDoor*>(door), false, nullptr);
+}
+
 static bool OpenDoor(OpenableDoor* door) {
-    if ("PlainDoor"sv == door->klass->name) {
+    if (door == nullptr)
+        return false;
+
+    if (IsHardPinnedDoor(door)) {
+        CloseDoorLocally(door);
+        State.rpcQueue.push(new RpcCloseDoorsOfType(door->fields.Room, false));
+        return true;
+    }
+
+    if ("PlainDoor"sv == door->klass->name || (door->klass->parent != nullptr && "PlainDoor"sv == door->klass->parent->name)) {
         app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), true, {});
     }
     else if ("MushroomWallDoor"sv == door->klass->name) {
@@ -104,12 +133,108 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method)
 {
     if (State.ShowHookLogs) LOG_DEBUG("Hook dInnerNetClient_Update executed");
 
-    if (!State.pinnedDoors.empty()) {
+if ((!State.pinnedDoors.empty() || !State.softPinnedDoors.empty()) && IsInGame()) {
         auto now = std::chrono::steady_clock::now();
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - State.lastPinnedDoorCloseCheck).count() >= 5000) {
-            State.lastPinnedDoorCloseCheck = now;
-            for (auto pinnedType : State.pinnedDoors) {
-                app::ShipStatus_RpcCloseDoorsOfType(*Game::pShipStatus, pinnedType, NULL);
+        bool isAirshipOrPolus = State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb;
+
+        if (!State.softPinnedDoors.empty() && isAirshipOrPolus) {
+            for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors)) {
+                if (!door) continue;
+                auto roomType = door->fields.Room;
+                uint8_t doorId = (uint8_t)door->fields.Id;
+                bool isSoftPinned = std::find(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), roomType) != State.softPinnedDoors.end();
+                if (!isSoftPinned) continue;
+                bool isOpen = false;
+                if ("PlainDoor"sv == door->klass->name || "PlainDoor"sv == door->klass->parent->name)
+                    isOpen = reinterpret_cast<PlainDoor*>(door)->fields.Open;
+                else if ("MushroomWallDoor"sv == door->klass->name)
+                    isOpen = reinterpret_cast<MushroomWallDoor*>(door)->fields.open;
+                if (isOpen) {
+                    if (State.doorOpenTimes.find(doorId) == State.doorOpenTimes.end())
+                        State.doorOpenTimes[doorId] = now;
+                    else if (std::chrono::duration_cast<std::chrono::milliseconds>(now - State.doorOpenTimes[doorId]).count() >= 1500) {
+                        State.rpcQueue.push(new RpcCloseDoorsOfType(roomType, false));
+                        State.doorOpenTimes.erase(doorId);
+                    }
+                }
+                else {
+                    State.doorOpenTimes.erase(doorId);
+                }
+            }
+        }
+
+        if (!State.pinnedDoors.empty()) {
+            static auto lastPinnedDoorClosePulse = std::chrono::steady_clock::time_point{};
+
+            if (!IsHost()) {
+                // Non-host clients are not authoritative.  To minimize the race
+                // between another player's open and this client's close, do not
+                // wait for a local `isOpen` read: pulse-close pinned rooms every
+                // 50 ms.
+                if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPinnedDoorClosePulse).count() >= 50) {
+                    lastPinnedDoorClosePulse = now;
+
+                    for (auto pinnedType : State.pinnedDoors) {
+                        State.rpcQueue.push(new RpcCloseDoorsOfType(pinnedType, false));
+                    }
+
+                    if (isAirshipOrPolus) {
+                        for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors)) {
+                            if (!door) continue;
+
+                            auto roomType = door->fields.Room;
+                            if (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), roomType) == State.pinnedDoors.end())
+                                continue;
+
+                            // No open-state check on non-host: force every
+                            // pinned door object closed whenever the pulse fires.
+                            CloseDoorLocally(door);
+                        }
+                    }
+                }
+            }
+            else {
+                // Host is authoritative enough to avoid packet spam.  Keep the
+                // cleaner close-on-open behavior and only send one close RPC per
+                // observed open event.
+                if (isAirshipOrPolus) {
+                    for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors)) {
+                        if (!door) continue;
+
+                        auto roomType = door->fields.Room;
+                        if (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), roomType) == State.pinnedDoors.end())
+                            continue;
+
+                        bool isOpen = false;
+                        bool isPlain = ("PlainDoor"sv == door->klass->name || (door->klass->parent != nullptr && "PlainDoor"sv == door->klass->parent->name));
+                        bool isMushroom = ("MushroomWallDoor"sv == door->klass->name);
+
+                        if (isPlain)
+                            isOpen = reinterpret_cast<PlainDoor*>(door)->fields.Open;
+                        else if (isMushroom)
+                            isOpen = reinterpret_cast<MushroomWallDoor*>(door)->fields.open;
+
+                        if (isOpen) {
+                            CloseDoorLocally(door);
+
+                            if (State.pinnedDoorLastCheck.find(roomType) == State.pinnedDoorLastCheck.end()) {
+                                State.rpcQueue.push(new RpcCloseDoorsOfType(roomType, false));
+                                State.pinnedDoorLastCheck[roomType] = now;
+                            }
+                        }
+                        else {
+                            State.pinnedDoorLastCheck.erase(roomType);
+                        }
+                    }
+                }
+                else {
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - State.lastPinnedDoorCloseCheck).count() >= 5000) {
+                        State.lastPinnedDoorCloseCheck = now;
+                        for (auto pinnedType : State.pinnedDoors) {
+                            app::ShipStatus_RpcCloseDoorsOfType(*Game::pShipStatus, pinnedType, NULL);
+                        }
+                    }
+                }
             }
         }
     }
@@ -451,14 +576,14 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method)
 
             static int joinDelay = 0;
             if (joinDelay > 0) joinDelay--;
-            if (State.AutoJoinLobby && joinDelay <= 0) {
+           /* if (State.AutoJoinLobby && joinDelay <= 0) {
                 void* routine = AmongUsClient_CoFindGameInfoFromCodeAndJoin(*Game::pAmongUsClient,
                     GameCode_GameNameToInt(convert_to_string(State.AutoJoinLobbyCode), NULL),
                     NULL);
                 MonoBehaviour_StartCoroutine((MonoBehaviour*)*Game::pAmongUsClient, routine, NULL);
                 State.AutoJoinLobby = false;
                 joinDelay = 100;
-            }
+            }*/
 
             static int reportDelay = 0;
             if (reportDelay <= 0 && State.SpamReport && (IsHost() || !State.SafeMode) && IsInGame()) {

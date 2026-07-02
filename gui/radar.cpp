@@ -4,8 +4,14 @@
 #include "utility.h"
 #include "state.hpp"
 #include "gui-helpers.hpp"
+#include <algorithm>
+#include <array>
 
 namespace Radar {
+	static std::array<Vector2, Game::MAX_PLAYERS> mapPlayerPositions = {};
+	static std::array<bool, Game::MAX_PLAYERS> hasMapPlayerPosition = {};
+	static bool mapPlayerPositionsFrozenForMeeting = false;
+
 	ImU32 GetRadarPlayerColor(NetworkedPlayerInfo* playerData) {
 		auto outfit = GetPlayerOutfit(playerData);
 		if (outfit == NULL) return ImU32(0);
@@ -20,6 +26,143 @@ namespace Radar {
 			return ImGui::ColorConvertFloat4ToU32(AmongUsColorToImVec4(app::Palette__TypeInfo->static_fields->HalfWhite));
 		else
 			return ImGui::ColorConvertFloat4ToU32(ImVec4(0, 0, 0, 0));
+	}
+
+	static bool CanRenderMapPlayer(PlayerControl* player, NetworkedPlayerInfo* playerData) {
+		if (!player || !playerData || playerData->fields.Disconnected)
+			return false;
+		if (Game::pLocalPlayer && *Game::pLocalPlayer && player == *Game::pLocalPlayer)
+			return false;
+		if (!State.ShowRadar_Ghosts && playerData->fields.IsDead)
+			return false;
+		return playerData->fields.PlayerId < Game::MAX_PLAYERS;
+	}
+
+	static bool GetMapOverlayLayout(ImVec2& origin, float& mapScale) {
+		if (maps.empty() || (size_t)State.mapType >= maps.size())
+			return false;
+
+		const auto& map = maps[(size_t)State.mapType];
+		const float baseWidth = (float)map.mapImage.imageWidth * 0.5f;
+		const float baseHeight = (float)map.mapImage.imageHeight * 0.5f;
+		if (baseWidth <= 0.f || baseHeight <= 0.f)
+			return false;
+
+		const ImVec2 screenSize = DirectX::GetWindowSize();
+		const float fitScale = (std::min)(screenSize.x / baseWidth, screenSize.y / baseHeight) * 0.92f;
+		const ImVec2 mapSize(baseWidth * fitScale, baseHeight * fitScale);
+
+		origin = ImVec2((screenSize.x - mapSize.x) * 0.5f, (screenSize.y - mapSize.y) * 0.5f);
+		mapScale = fitScale;
+		return mapScale > 0.f;
+	}
+
+	static ImVec2 WorldToMapScreenPosition(const Vector2& worldPosition, const ImVec2& origin, float mapScale) {
+		const auto& map = maps[(size_t)State.mapType];
+		const float radX = getMapXOffsetSkeld(map.x_offset) + (worldPosition.x * map.scale);
+		const float radY = map.y_offset - (worldPosition.y * map.scale);
+		return ImVec2(origin.x + radX * mapScale, origin.y + radY * mapScale);
+	}
+
+	static void DrawMapPlayerDot(ImDrawList* drawList, PlayerControl* player, NetworkedPlayerInfo* playerData, const Vector2& worldPosition, const ImVec2& origin, float mapScale) {
+		const ImVec2 center = WorldToMapScreenPosition(worldPosition, origin, mapScale);
+		const float radius = 4.5f * mapScale;
+		const float outlineThickness = 2.0f * (std::max)(0.75f, mapScale);
+		const ImU32 color = GetRadarPlayerColor(playerData);
+		const ImU32 statusColor = GetRadarPlayerColorStatus(playerData);
+
+		auto localData = (Game::pLocalPlayer && *Game::pLocalPlayer) ? GetPlayerData(*Game::pLocalPlayer) : nullptr;
+		if (localData && (State.RevealRoles || PlayerIsImpostor(localData)) && PlayerIsImpostor(playerData)) {
+			const ImVec2 topLeft(center.x - radius, center.y - radius);
+			const ImVec2 bottomRight(center.x + radius, center.y + radius);
+			drawList->AddRectFilled(topLeft, bottomRight, color, 1.f * mapScale);
+			drawList->AddRect(topLeft, bottomRight, statusColor, 1.f * mapScale, 15, outlineThickness);
+			return;
+		}
+
+		drawList->AddCircleFilled(center, radius, color);
+		drawList->AddCircle(center, radius + (0.5f * mapScale), statusColor, 0, outlineThickness);
+	}
+
+	static void DrawMapPlayerIcon(ImDrawList* drawList, PlayerControl* player, NetworkedPlayerInfo* playerData, const Vector2& worldPosition, const ImVec2& origin, float mapScale) {
+		const auto& map = maps[(size_t)State.mapType];
+		const float xOffset = getMapXOffsetSkeld(map.x_offset);
+		const float yOffset = map.y_offset;
+
+		IconTexture icon = icons.at(ICON_TYPES::PLAYER);
+		IconTexture visor = icons.at(ICON_TYPES::PLAYERVISOR);
+		const float halfImageWidth = icon.iconImage.imageWidth * icon.scale * 0.5f;
+		const float halfImageHeight = icon.iconImage.imageHeight * icon.scale * 0.5f;
+		const float radX = xOffset + (worldPosition.x - halfImageWidth) * map.scale;
+		const float radY = yOffset - (worldPosition.y - halfImageHeight) * map.scale;
+		const float radXMax = xOffset + (worldPosition.x + halfImageWidth) * map.scale;
+		const float radYMax = yOffset - (worldPosition.y + halfImageHeight) * map.scale;
+
+		const ImVec2 p_min(origin.x + radX * mapScale, origin.y + radY * mapScale);
+		const ImVec2 p_max(origin.x + radXMax * mapScale, origin.y + radYMax * mapScale);
+
+		drawList->AddImage((void*)icon.iconImage.shaderResourceView,
+			p_min, p_max,
+			ImVec2(0.0f, 1.0f),
+			ImVec2(1.0f, 0.0f),
+			GetRadarPlayerColor(playerData));
+
+		drawList->AddImage((void*)visor.iconImage.shaderResourceView,
+			p_min, p_max,
+			ImVec2(0.0f, 1.0f),
+			ImVec2(1.0f, 0.0f),
+			(State.RevealRoles && playerData->fields.Role) ?
+			ImGui::GetColorU32(AmongUsColorToImVec4(GetRoleColor(playerData->fields.Role))) :
+			ImGui::GetColorU32(AmongUsColorToImVec4(Palette__TypeInfo->static_fields->VisorColor)));
+
+		if (playerData->fields.IsDead)
+			drawList->AddImage((void*)icons.at(ICON_TYPES::CROSS).iconImage.shaderResourceView,
+				p_min, p_max,
+				ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f), IM_COL32_WHITE);
+	}
+
+	static void CaptureMapPlayerPositionsInternal() {
+		if (!IsInGame())
+			return;
+
+		std::array<bool, Game::MAX_PLAYERS> seenPlayers = {};
+		for (auto player : GetAllPlayerControl()) {
+			if (!player)
+				continue;
+
+			auto playerData = GetPlayerData(player);
+			if (!playerData || playerData->fields.Disconnected || playerData->fields.PlayerId >= Game::MAX_PLAYERS)
+				continue;
+
+			const auto playerId = playerData->fields.PlayerId;
+			mapPlayerPositions[playerId] = app::PlayerControl_GetTruePosition(player, NULL);
+			hasMapPlayerPosition[playerId] = true;
+			seenPlayers[playerId] = true;
+		}
+
+		for (size_t i = 0; i < hasMapPlayerPosition.size(); i++) {
+			if (!seenPlayers[i])
+				hasMapPlayerPosition[i] = false;
+		}
+	}
+
+	void CaptureMapPlayerPositions() {
+		if (mapPlayerPositionsFrozenForMeeting)
+			return;
+
+		CaptureMapPlayerPositionsInternal();
+	}
+
+	void CaptureMeetingMapPlayerPositions() {
+		if (mapPlayerPositionsFrozenForMeeting)
+			return;
+
+		CaptureMapPlayerPositionsInternal();
+		mapPlayerPositionsFrozenForMeeting = true;
+	}
+
+	void ResetMapPlayerPositionFreeze() {
+		mapPlayerPositionsFrozenForMeeting = false;
 	}
 
 	void SquareConstraint(ImGuiSizeCallbackData* data)
@@ -156,6 +299,47 @@ namespace Radar {
 
 		if (State.ShowRadar_RightClickTP)
 			OnClick();
+
+		ImGui::End();
+	}
+
+	void RenderMapPlayers() {
+		ImVec2 mapOrigin;
+		float mapScale = 1.f;
+		if (!GetMapOverlayLayout(mapOrigin, mapScale))
+			return;
+
+		const ImVec2 screenSize = DirectX::GetWindowSize();
+		ImGui::SetNextWindowPos(ImVec2(0.f, 0.f), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(screenSize, ImGuiCond_Always);
+		ImGui::SetNextWindowBgAlpha(0.f);
+
+		ImGui::Begin("Map Player Positions", nullptr,
+			ImGuiWindowFlags_NoDecoration
+			| ImGuiWindowFlags_NoInputs
+			| ImGuiWindowFlags_NoSavedSettings
+			| ImGuiWindowFlags_NoFocusOnAppearing
+			| ImGuiWindowFlags_NoBackground);
+
+		ImDrawList* drawList = ImGui::GetWindowDrawList();
+		for (auto player : GetAllPlayerControl()) {
+			if (!player)
+				continue;
+
+			auto playerData = GetPlayerData(player);
+			if (!CanRenderMapPlayer(player, playerData))
+				continue;
+
+			const auto playerId = playerData->fields.PlayerId;
+			if (!hasMapPlayerPosition[playerId])
+				continue;
+
+			const Vector2& playerPosition = mapPlayerPositions[playerId];
+			if (State.RadarDrawIcons)
+				DrawMapPlayerIcon(drawList, player, playerData, playerPosition, mapOrigin, mapScale);
+			else
+				DrawMapPlayerDot(drawList, player, playerData, playerPosition, mapOrigin, mapScale);
+		}
 
 		ImGui::End();
 	}

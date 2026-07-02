@@ -272,6 +272,7 @@ public:
     std::queue<RPCInterface*> taskRpcQueue;
 
     bool ShowRadar = false;
+    bool ShowRadar_OthersInMap = false;
     bool ShowRadar_DeadBodies = false;
     bool ShowRadar_Ghosts = false;
     bool HideRadar_During_Meetings = false;
@@ -318,11 +319,14 @@ public:
     bool confuseOnMeeting = false;
 
     SystemTypes__Enum selectedDoor = SystemTypes__Enum::Hallway;
+    std::map<uint8_t, std::chrono::steady_clock::time_point> doorOpenTimes;
+    std::vector<app::SystemTypes__Enum> softPinnedDoors;
+    std::map<app::SystemTypes__Enum, std::chrono::steady_clock::time_point> pinnedDoorLastCheck;
     std::vector<SystemTypes__Enum> mapDoors;
     std::vector<SystemTypes__Enum> pinnedDoors;
     std::chrono::steady_clock::time_point lastPinnedDoorCloseCheck = std::chrono::steady_clock::now();
-    std::vector<SystemTypes__Enum> pinnedDoors;
     bool CloseAllDoors = false;
+    bool SoftPinDoors = false;
 
     bool ShowConsole = false;
     bool ShowReplay = false;

@@ -59,7 +59,7 @@ namespace Menu {
 				  "Fake Alive", "God Mode", "Teleport", "Rotate everyone", "Select Role", "Set Role", "Set Fake Role", "Automatically Set Fake Role",
 				  "Show Lobby Info", "See Phantoms", "Report Body on Murder", "Prevent Self-Report",
 				  "Cycler", "Cycle in Meeting", "Cycle Between Players", "Confuser (Randomize Appearance at Will"}},
-		{"Radar", {"Show Radar", "Show Dead Bodies", "Show Ghosts", "Right Click to Teleport", "Hide Radar During Meetings", "Draw Player Icons", "Lock Radar Position", "Show Border"}},
+		{"Radar", {"Show Radar", "Show Others in Map", "Show Dead Bodies", "Show Ghosts", "Right Click to Teleport", "Hide Radar During Meetings", "Draw Player Icons", "Lock Radar Position", "Show Border"}},
 		{"Replay", {"Show Replay", "Show Only last seconds", "Clear after meeting"}},
 		{"ESP", {"Enable", "Show Ghosts", "Hide During Meetings", "Show Boxes", "Show Tracers", "Show Distances", "Role-based"}},
 		{"Players", {"Players"}},

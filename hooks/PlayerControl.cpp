@@ -3,6 +3,7 @@
 #include "game.h"
 #include "state.hpp"
 #include "esp.hpp"
+#include "radar.hpp"
 #include "_rpc.h"
 #include "replay.hpp"
 #include "profiler.h"
@@ -1049,6 +1050,7 @@ void dPlayerControl_StartMeeting(PlayerControl* __this, NetworkedPlayerInfo* tar
         if (!State.PanicMode && IsHost() && (State.DisableMeetings || (State.BattleRoyale || State.TaskSpeedrun))) {
             return;
         }
+        Radar::CaptureMeetingMapPlayerPositions();
 
         if (State.Enable_SMAC && State.SMAC_CheckReport) {
             if (IsInLobby()) {
@@ -1205,6 +1207,7 @@ void dPlayerControl_CmdReportDeadBody(PlayerControl* __this, NetworkedPlayerInfo
         if (!State.PanicMode && IsHost() && (State.DisableMeetings || (State.BattleRoyale || State.TaskSpeedrun))) {
             return;
         }
+        Radar::CaptureMeetingMapPlayerPositions();
     }
     catch (...) {
         Log.Debug("Exception occurred in CmdReportDeadBody (PlayerControl)");
@@ -1219,6 +1222,7 @@ void dPlayerControl_RpcStartMeeting(PlayerControl* __this, NetworkedPlayerInfo* 
         if (!State.PanicMode && IsHost() && (State.DisableMeetings || (State.BattleRoyale || State.TaskSpeedrun))) {
             return;
         }
+        Radar::CaptureMeetingMapPlayerPositions();
     }
     catch (...) {
         Log.Debug("Exception occurred in PlayerControl_RpcStartMeeting (PlayerControl)");

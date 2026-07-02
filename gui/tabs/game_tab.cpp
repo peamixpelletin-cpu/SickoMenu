@@ -1074,21 +1074,7 @@ namespace GameTab {
         if (openHistory) {
             ImGui::Text("Last 100 players:");
 
-            static std::string historySearchBuf = "";
-            ImGui::SetNextItemWidth(200);
-            InputString("##HistorySearch", &historySearchBuf);
-            ImGui::SameLine();
-            ImGui::TextDisabled("Search");
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Filter by name, friend code, or PUID");
-
             static int selectedIndex = -1;
-
-            static std::string lastSearchQuery = "";
-            if (historySearchBuf != lastSearchQuery) {
-                lastSearchQuery = historySearchBuf;
-                selectedIndex = -1;
-            }
 
             std::vector<std::string> decoratedStorage;
             decoratedStorage.reserve(State.PlayerHistory.size());
@@ -1098,9 +1084,6 @@ namespace GameTab {
             names.reserve(State.PlayerHistory.size());
             filteredIndices.reserve(State.PlayerHistory.size());
 
-            std::string searchQuery = historySearchBuf;
-            std::transform(searchQuery.begin(), searchQuery.end(), searchQuery.begin(), ::tolower);
-
             for (int i = 0; i < (int)State.PlayerHistory.size(); ++i)
             {
                 auto& p = State.PlayerHistory[i];
@@ -1108,19 +1091,6 @@ namespace GameTab {
                 bool visible = (itf != State.platformFilters.end()) ? itf->second : true;
                 if (!visible) continue;
 
-                if (!searchQuery.empty()) {
-                    std::string lnick = p.Nick;
-                    std::transform(lnick.begin(), lnick.end(), lnick.begin(), ::tolower);
-                    std::string lfc = p.FriendCode;
-                    std::transform(lfc.begin(), lfc.end(), lfc.begin(), ::tolower);
-                    std::string lpuid = p.Puid;
-                    std::transform(lpuid.begin(), lpuid.end(), lpuid.begin(), ::tolower);
-
-                    if (lnick.find(searchQuery) == std::string::npos &&
-                        lfc.find(searchQuery) == std::string::npos &&
-                        lpuid.find(searchQuery) == std::string::npos)
-                        continue;
-                }
                 std::string decorated = p.Nick;
 
                 if (p.NameCheck) decorated = "[!] " + decorated;
@@ -1347,7 +1317,7 @@ namespace GameTab {
                 if (changed) State.Save();
             }
 
-            ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
+            ImGui::Dummy(ImVec2(5, 5)* State.dpiScale);
 
             if (ImGui::CollapsingHeader("Platform Filters"))
             {
@@ -1362,58 +1332,6 @@ namespace GameTab {
                 }
 
                 ImGui::Columns(1);
-            }
-
-            ImGui::Dummy(ImVec2(5, 5)* State.dpiScale);
-
-            if (ImGui::CollapsingHeader("Lobby History")) {
-                if (State.LobbyHistory.empty()) {
-                    ImGui::TextDisabled("No lobbies visited yet.");
-                }
-                else {
-                    if (SliderIntV2("Lobbies to Show", &State.LobbyHistoryLimit, 1, 50, "%d", ImGuiSliderFlags_NoInput))
-                        State.Save();
-                    int displayCount = (int)State.LobbyHistory.size() < State.LobbyHistoryLimit ? (int)State.LobbyHistory.size() : State.LobbyHistoryLimit;
-                    ImGui::Text("Last %d/%d lobbies:", displayCount, State.LobbyHistoryLimit);
-                    ImGui::Columns(3, "lobbyHistoryCols", false);
-                    ImGui::SetColumnWidth(0, 80 * State.dpiScale);
-                    ImGui::SetColumnWidth(1, 120 * State.dpiScale);
-                    ImGui::SetColumnWidth(2, 160 * State.dpiScale);
-
-                    ImGui::TextDisabled("Code"); ImGui::NextColumn();
-                    ImGui::TextDisabled("Host"); ImGui::NextColumn();
-                    ImGui::NextColumn();
-                    ImGui::Separator();
-
-                    int lobbyCount = 0;
-                    for (auto& lobby : State.LobbyHistory) {
-                        if (lobbyCount >= State.LobbyHistoryLimit) break;
-                        lobbyCount++;
-                        ImGui::Text("%s", lobby.Code.c_str());
-                        ImGui::NextColumn();
-                        ImGui::Text("%s", lobby.HostName.empty() ? "Unknown" : lobby.HostName.c_str());
-                        ImGui::NextColumn();
-                        if (AnimatedButton(("Copy##" + lobby.Code).c_str()))
-                            ImGui::SetClipboardText(lobby.Code.c_str());
-                        ImGui::SameLine();
-                        if (AnimatedButton(("Join##" + lobby.Code).c_str())) {
-                            State.AutoJoinLobbyCode = lobby.Code;
-                            State.AutoJoinLobby = true;
-                        }
-                        ImGui::SameLine();
-                        if (AnimatedButton(("Clear##" + lobby.Code).c_str())) {
-                            State.LobbyHistory.erase(std::remove_if(State.LobbyHistory.begin(), State.LobbyHistory.end(),
-                                [&lobby](const auto& l) { return l.Code == lobby.Code; }), State.LobbyHistory.end());
-                            break;
-                        }
-                        ImGui::NextColumn();
-                    }
-                    ImGui::Columns(1);
-
-                    ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
-                    if (AnimatedButton("Clear History##lobby"))
-                        State.LobbyHistory.clear();
-                }
             }
         }
 

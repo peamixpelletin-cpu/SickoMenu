@@ -154,6 +154,7 @@ void Settings::Load() {
         JSON_TRYGET("DisableRoleManager", this->DisableRoleManager);
 
         JSON_TRYGET("ShowRadar", this->ShowRadar);
+        JSON_TRYGET("ShowRadar_OthersInMap", this->ShowRadar_OthersInMap);
         JSON_TRYGET("ShowRadar_DeadBodies", this->ShowRadar_DeadBodies);
         JSON_TRYGET("ShowRadar_Ghosts", this->ShowRadar_Ghosts);
         JSON_TRYGET("HideRadar_During_Meetings", this->HideRadar_During_Meetings);
@@ -663,6 +664,7 @@ void Settings::Save() {
                 { "DisableRoleManager", this->DisableRoleManager },
 
                 { "ShowRadar", this->ShowRadar },
+                { "ShowRadar_OthersInMap", this->ShowRadar_OthersInMap },
                 { "ShowRadar_DeadBodies", this->ShowRadar_DeadBodies },
                 { "ShowRadar_Ghosts", this->ShowRadar_Ghosts },
                 { "HideRadar_During_Meetings", this->HideRadar_During_Meetings },

@@ -70,6 +70,11 @@ static bool CanDrawRadar()
     return !State.PanicMode && IsInGame() && State.ShowRadar && (!State.InMeeting || !State.HideRadar_During_Meetings);
 }
 
+static bool CanDrawMapPlayers()
+{
+    return !State.PanicMode && IsInGame() && State.ShowRadar_OthersInMap && State.IsAdminMapOpen;
+}
+
 static bool CanDrawReplay()
 {
     return !State.PanicMode && IsInGame() && State.ShowReplay;
@@ -344,6 +349,11 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
         State.TempPanicMode = false;
     }
 
+    if (!State.PanicMode && IsInGame() && !State.InMeeting)
+    {
+        Radar::CaptureMapPlayerPositions();
+    }
+
     if (!State.PanicMode && State.ShowMenu)
     {
         ImGuiRenderer::Submit([]() { Menu::Render(); });
@@ -385,6 +395,11 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
     if (CanDrawRadar())
     {
             ImGuiRenderer::Submit([]() { Radar::Render(); });
+    }
+
+    if (CanDrawMapPlayers())
+    {
+        ImGuiRenderer::Submit([]() { Radar::RenderMapPlayers(); });
     }
 
     if (CanDrawReplay())

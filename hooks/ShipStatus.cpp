@@ -6,6 +6,80 @@
 #include "replay.hpp"
 #include "profiler.h"
 #include "game.h"
+#include <cstring>
+
+
+static bool IsHardPinnedDoorRoom(SystemTypes__Enum room) {
+    return !State.PanicMode &&
+        std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), room) != State.pinnedDoors.end();
+}
+
+static bool IsPolusOrAirship() {
+    return State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb;
+}
+
+static bool DoorClassMatches(Il2CppClass* klass, const char* name) {
+    for (auto k = klass; k != nullptr; k = k->parent) {
+        if (k->name != nullptr && std::strcmp(k->name, name) == 0)
+            return true;
+    }
+    return false;
+}
+
+static OpenableDoor* FindDoorFromDoorsSystemAmount(ShipStatus* shipStatus, uint8_t amount) {
+    if (shipStatus == nullptr)
+        return nullptr;
+
+    const uint8_t requestedDoorId = static_cast<uint8_t>(amount & ~64);
+    for (auto door : il2cpp::Array(shipStatus->fields.AllDoors)) {
+        if (door == nullptr)
+            continue;
+
+        const uint8_t doorId = static_cast<uint8_t>(door->fields.Id & ~64);
+        if (doorId == requestedDoorId)
+            return door;
+    }
+
+    return nullptr;
+}
+
+static void ForceDoorClosedLocally(OpenableDoor* door) {
+    if (door == nullptr || door->klass == nullptr)
+        return;
+
+    if (DoorClassMatches(door->klass, "PlainDoor")) {
+        app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), false, nullptr);
+    }
+    else if (DoorClassMatches(door->klass, "MushroomWallDoor")) {
+        app::MushroomWallDoor_SetDoorway(reinterpret_cast<MushroomWallDoor*>(door), false, nullptr);
+    }
+}
+
+static bool ShouldSuppressHardPinnedDoorOpen(
+    ShipStatus* shipStatus,
+    SystemTypes__Enum systemType,
+    uint8_t amount,
+    OpenableDoor** doorOut,
+    SystemTypes__Enum* roomOut) {
+
+    // In Polus/Airship door systems, bit 0x40 is the existing open marker used
+    // elsewhere in this mod (door->Id | 64 opens, door->Id & ~64 closes).
+    if (State.PanicMode || systemType != SystemTypes__Enum::Doors || State.pinnedDoors.empty() || !IsPolusOrAirship())
+        return false;
+
+    if ((amount & 64) == 0)
+        return false; // Already a close/no-open update; let vanilla handle it.
+
+    OpenableDoor* door = FindDoorFromDoorsSystemAmount(shipStatus, amount);
+    if (door == nullptr || !IsHardPinnedDoorRoom(door->fields.Room))
+        return false;
+
+    if (doorOut != nullptr)
+        *doorOut = door;
+    if (roomOut != nullptr)
+        *roomOut = door->fields.Room;
+    return true;
+}
 
 float dShipStatus_CalculateLightRadius(ShipStatus* __this, NetworkedPlayerInfo* player, MethodInfo* method) {
     if (State.ShowHookLogs) LOG_DEBUG("Hook dShipStatus_CalculateLightRadius executed");
@@ -169,6 +243,23 @@ bool DetectCheatSabotage(SystemTypes__Enum systemType, PlayerControl* player, ui
 void dShipStatus_UpdateSystem(ShipStatus* __this, SystemTypes__Enum systemType, PlayerControl* player, uint8_t amount, MethodInfo* method) {
     if (State.ShowHookLogs) LOG_DEBUG("Hook dShipStatus_UpdateSystem executed");
     LOG_DEBUG(std::format("SystemType {} updated with amount {}", (std::string)TranslateSystemTypes(systemType), amount).c_str());
+
+    OpenableDoor* hardPinnedDoor = nullptr;
+    SystemTypes__Enum hardPinnedRoom = SystemTypes__Enum::Hallway;
+    if (ShouldSuppressHardPinnedDoorOpen(__this, systemType, amount, &hardPinnedDoor, &hardPinnedRoom)) {
+        // Critical fix: reject the open before vanilla applies it. The old path
+        // opened first and only sent a close afterward, so remote clients could
+        // render a short open window and squeeze through.
+        ForceDoorClosedLocally(hardPinnedDoor);
+
+        // If this client is host, also broadcast a close immediately so clients
+        // that do not have this receiver-side guard collapse back to closed as
+        // soon as the host sees the bad open attempt.
+        if (IsHost())
+            app::ShipStatus_RpcCloseDoorsOfType(__this, hardPinnedRoom, nullptr);
+        return;
+    }
+
     if (systemType == SystemTypes__Enum::Ventilation ||
         systemType == SystemTypes__Enum::Security ||
         systemType == SystemTypes__Enum::Decontamination ||

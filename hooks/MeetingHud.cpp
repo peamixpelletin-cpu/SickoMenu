@@ -3,6 +3,7 @@
 #include "state.hpp"
 #include "game.h"
 #include "logger.h"
+#include "radar.hpp"
 #include <chrono>
 
 static app::Type* voteSpreaderType = nullptr;
@@ -33,6 +34,7 @@ void dMeetingHud_Close(MeetingHud* __this, MethodInfo* method) {
     try {
         State.BlinkPlayersTab = true;
         State.InMeeting = false;
+        Radar::ResetMapPlayerPositionFreeze();
         calloutOver = false;
         if (IsHost() && State.TournamentMode && !State.tournamentFirstMeetingOver) State.tournamentFirstMeetingOver = true;
         if (State.Replay_ClearAfterMeeting) {

@@ -68,6 +68,15 @@ namespace Radar {
 		return (std::clamp)(13.f * mapScale, 28.f, 78.f);
 	}
 
+	static float GetFullMapDeadBodyIconSize(float mapScale) {
+		return GetFullMapPlayerIconSize(mapScale);
+	}
+
+	static ImU32 GetMapDeadBodyColor(NetworkedPlayerInfo* playerData) {
+		const ImU32 color = GetRadarPlayerColor(playerData);
+		return color != 0 ? color : IM_COL32_WHITE;
+	}
+
 	static void DrawMapPlayerDot(ImDrawList* drawList, PlayerControl* player, NetworkedPlayerInfo* playerData, const Vector2& worldPosition, const ImVec2& origin, float mapScale) {
 		const ImVec2 center = WorldToMapScreenPosition(worldPosition, origin, mapScale);
 		const float radius = 4.5f * mapScale;
@@ -99,14 +108,14 @@ namespace Radar {
 
 		drawList->AddImage((void*)icon.iconImage.shaderResourceView,
 			p_min, p_max,
-			ImVec2(0.0f, 0.0f),
-			ImVec2(1.0f, 1.0f),
+			ImVec2(0.0f, 1.0f),
+			ImVec2(1.0f, 0.0f),
 			GetRadarPlayerColor(playerData));
 
 		drawList->AddImage((void*)visor.iconImage.shaderResourceView,
 			p_min, p_max,
-			ImVec2(0.0f, 0.0f),
-			ImVec2(1.0f, 1.0f),
+			ImVec2(0.0f, 1.0f),
+			ImVec2(1.0f, 0.0f),
 			(State.RevealRoles && playerData->fields.Role) ?
 			ImGui::GetColorU32(AmongUsColorToImVec4(GetRoleColor(playerData->fields.Role))) :
 			ImGui::GetColorU32(AmongUsColorToImVec4(Palette__TypeInfo->static_fields->VisorColor)));
@@ -114,7 +123,25 @@ namespace Radar {
 		if (playerData->fields.IsDead)
 			drawList->AddImage((void*)icons.at(ICON_TYPES::CROSS).iconImage.shaderResourceView,
 				p_min, p_max,
-				ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), IM_COL32_WHITE);
+				ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f), IM_COL32_WHITE);
+	}
+
+	static void DrawMapDeadBodyIcon(ImDrawList* drawList, DeadBody* deadBody, NetworkedPlayerInfo* playerData, const ImVec2& origin, float mapScale) {
+		if (!deadBody)
+			return;
+
+		IconTexture icon = icons.at(ICON_TYPES::DEAD);
+		const ImVec2 center = WorldToMapScreenPosition(app::DeadBody_get_TruePosition(deadBody, NULL), origin, mapScale);
+		const float iconSize = GetFullMapDeadBodyIconSize(mapScale);
+		const ImVec2 halfSize(iconSize * 0.5f, iconSize * 0.5f);
+		const ImVec2 p_min(center.x - halfSize.x, center.y - halfSize.y);
+		const ImVec2 p_max(center.x + halfSize.x, center.y + halfSize.y);
+
+		drawList->AddImage((void*)icon.iconImage.shaderResourceView,
+			p_min, p_max,
+			ImVec2(0.0f, 1.0f),
+			ImVec2(1.0f, 0.0f),
+			GetMapDeadBodyColor(playerData));
 	}
 
 	static void CaptureMapPlayerPositionsInternal() {
@@ -332,6 +359,19 @@ namespace Radar {
 
 			const Vector2& playerPosition = mapPlayerPositions[playerId];
 			DrawMapPlayerIcon(drawList, player, playerData, playerPosition, mapOrigin, mapScale);
+		}
+
+		if (State.ShowRadar_DeadBodies) {
+			for (auto deadBody : GetAllDeadBodies()) {
+				if (!deadBody)
+					continue;
+
+				const auto playerId = deadBody->fields.ParentId;
+				if (std::find(State.validDeadBodyIds.begin(), State.validDeadBodyIds.end(), playerId) == State.validDeadBodyIds.end())
+					continue;
+
+				DrawMapDeadBodyIcon(drawList, deadBody, GetPlayerDataById(playerId), mapOrigin, mapScale);
+			}
 		}
 
 		ImGui::End();

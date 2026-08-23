@@ -38,7 +38,7 @@ namespace Radar {
 		return playerData->fields.PlayerId < Game::MAX_PLAYERS;
 	}
 
-	static bool GetMapOverlayLayout(ImVec2& origin, float& mapScale) {
+	static bool GetMapOverlayLayout(ImVec2& origin, float& mapScale, float& zoomFactorOut) {
 		if (maps.empty() || (size_t)State.mapType >= maps.size())
 			return false;
 
@@ -48,12 +48,26 @@ namespace Radar {
 		if (baseWidth <= 0.f || baseHeight <= 0.f)
 			return false;
 
+		// The game renders the in-game map through the same orthographic cameras
+		// that SickoMenu's zoom drives (FollowerCam/UICamera are set to
+		// CameraHeight * 3, normally 3.f). Scroll zoom only changes their
+		// orthographic size, never their position, so scaling this overlay by
+		// referenceOrtho / currentOrtho around the screen center keeps the icons
+		// glued to the map at any zoom level.
+		float currentOrtho = 3.f;
+		if (State.FollowerCam != NULL)
+			currentOrtho = app::Camera_get_orthographicSize(State.FollowerCam, NULL);
+		if (currentOrtho <= 0.f)
+			currentOrtho = 3.f;
+		const float zoomFactor = 3.f / currentOrtho;
+
 		const ImVec2 screenSize = DirectX::GetWindowSize();
 		const float fitScale = (std::min)(screenSize.x / baseWidth, screenSize.y / baseHeight) * 0.92f;
-		const ImVec2 mapSize(baseWidth * fitScale, baseHeight * fitScale);
+		mapScale = fitScale * zoomFactor;
+		zoomFactorOut = zoomFactor;
 
+		const ImVec2 mapSize(baseWidth * mapScale, baseHeight * mapScale);
 		origin = ImVec2((screenSize.x - mapSize.x) * 0.5f, (screenSize.y - mapSize.y) * 0.5f);
-		mapScale = fitScale;
 		return mapScale > 0.f;
 	}
 
@@ -64,12 +78,14 @@ namespace Radar {
 		return ImVec2(origin.x + radX * mapScale, origin.y + radY * mapScale);
 	}
 
-	static float GetFullMapPlayerIconSize(float mapScale) {
-		return (std::clamp)(13.f * mapScale, 28.f, 78.f);
+	static float GetFullMapPlayerIconSize(float fitScale, float zoomFactor) {
+		// Clamp against the unzoomed fit so icons shrink/grow proportionally
+		// with the map instead of sticking to fixed pixel bounds.
+		return (std::clamp)(13.f * fitScale, 28.f, 78.f) * zoomFactor;
 	}
 
-	static float GetFullMapDeadBodyIconSize(float mapScale) {
-		return GetFullMapPlayerIconSize(mapScale);
+	static float GetFullMapDeadBodyIconSize(float fitScale, float zoomFactor) {
+		return GetFullMapPlayerIconSize(fitScale, zoomFactor);
 	}
 
 	static ImU32 GetMapDeadBodyColor(NetworkedPlayerInfo* playerData) {
@@ -77,11 +93,11 @@ namespace Radar {
 		return color != 0 ? color : IM_COL32_WHITE;
 	}
 
-	static void DrawMapPlayerIcon(ImDrawList* drawList, PlayerControl* player, NetworkedPlayerInfo* playerData, const Vector2& worldPosition, const ImVec2& origin, float mapScale) {
+	static void DrawMapPlayerIcon(ImDrawList* drawList, PlayerControl* player, NetworkedPlayerInfo* playerData, const Vector2& worldPosition, const ImVec2& origin, float mapScale, float fitScale, float zoomFactor) {
 		IconTexture icon = icons.at(ICON_TYPES::PLAYER);
 		IconTexture visor = icons.at(ICON_TYPES::PLAYERVISOR);
 		const ImVec2 center = WorldToMapScreenPosition(worldPosition, origin, mapScale);
-		const float iconSize = GetFullMapPlayerIconSize(mapScale);
+		const float iconSize = GetFullMapPlayerIconSize(fitScale, zoomFactor);
 		const ImVec2 halfSize(iconSize * 0.5f, iconSize * 0.5f);
 		const ImVec2 p_min(center.x - halfSize.x, center.y - halfSize.y);
 		const ImVec2 p_max(center.x + halfSize.x, center.y + halfSize.y);
@@ -106,13 +122,13 @@ namespace Radar {
 				ImVec2(1.0f, 0.0f), ImVec2(0.0f, 1.0f), IM_COL32_WHITE);
 	}
 
-	static void DrawMapDeadBodyIcon(ImDrawList* drawList, DeadBody* deadBody, NetworkedPlayerInfo* playerData, const ImVec2& origin, float mapScale) {
+	static void DrawMapDeadBodyIcon(ImDrawList* drawList, DeadBody* deadBody, NetworkedPlayerInfo* playerData, const ImVec2& origin, float mapScale, float fitScale, float zoomFactor) {
 		if (!deadBody)
 			return;
 
 		IconTexture icon = icons.at(ICON_TYPES::DEAD);
 		const ImVec2 center = WorldToMapScreenPosition(app::DeadBody_get_TruePosition(deadBody, NULL), origin, mapScale);
-		const float iconSize = GetFullMapDeadBodyIconSize(mapScale);
+		const float iconSize = GetFullMapDeadBodyIconSize(fitScale, zoomFactor);
 		const ImVec2 halfSize(iconSize * 0.5f, iconSize * 0.5f);
 		const ImVec2 p_min(center.x - halfSize.x, center.y - halfSize.y);
 		const ImVec2 p_max(center.x + halfSize.x, center.y + halfSize.y);
@@ -302,8 +318,11 @@ namespace Radar {
 	void RenderMapPlayers() {
 		ImVec2 mapOrigin;
 		float mapScale = 1.f;
-		if (!GetMapOverlayLayout(mapOrigin, mapScale))
+		float fitScale = 1.f;
+		float zoomFactor = 1.f;
+		if (!GetMapOverlayLayout(mapOrigin, mapScale, zoomFactor))
 			return;
+		fitScale = mapScale / zoomFactor;
 
 		const ImVec2 screenSize = DirectX::GetWindowSize();
 		ImGui::SetNextWindowPos(ImVec2(0.f, 0.f), ImGuiCond_Always);
@@ -331,7 +350,7 @@ namespace Radar {
 				continue;
 
 			const Vector2& playerPosition = mapPlayerPositions[playerId];
-			DrawMapPlayerIcon(drawList, player, playerData, playerPosition, mapOrigin, mapScale);
+			DrawMapPlayerIcon(drawList, player, playerData, playerPosition, mapOrigin, mapScale, fitScale, zoomFactor);
 		}
 
 		if (State.ShowRadar_DeadBodies) {
@@ -343,7 +362,7 @@ namespace Radar {
 				if (std::find(State.validDeadBodyIds.begin(), State.validDeadBodyIds.end(), playerId) == State.validDeadBodyIds.end())
 					continue;
 
-				DrawMapDeadBodyIcon(drawList, deadBody, GetPlayerDataById(playerId), mapOrigin, mapScale);
+				DrawMapDeadBodyIcon(drawList, deadBody, GetPlayerDataById(playerId), mapOrigin, mapScale, fitScale, zoomFactor);
 			}
 		}
 

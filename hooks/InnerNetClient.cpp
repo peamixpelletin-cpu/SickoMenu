@@ -109,6 +109,8 @@ static void onGameEnd() {
         State.softPinnedDoors.clear();
         State.doorOpenTimes.clear();
         State.pinnedDoorLastCheck.clear();
+        State.IsAdminMapOpen = false;
+        State.IsNormalMapOpen = false;
         State.RealRole = RoleTypes__Enum::Crewmate;
         State.mapType = Settings::MapType::Ship;
         State.SpeedrunTimer = 0.f;

@@ -367,6 +367,7 @@ public:
     std::queue<RPCInterface*> taskRpcQueue;
 
     bool ShowRadar = false;
+    bool ShowRadar_OthersInMap = false;
     bool ShowRadar_DeadBodies = false;
     bool ShowRadar_Ghosts = false;
     bool HideRadar_During_Meetings = false;
@@ -618,6 +619,7 @@ public:
     bool ChatFocused = false;
     bool IsRevived = false;
     bool IsAdminMapOpen = false;
+    bool IsNormalMapOpen = false;
 
     std::string chatMessage = "";
     std::string userName = "";

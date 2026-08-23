@@ -70,6 +70,23 @@ static bool CanDrawRadar()
     return !State.PanicMode && IsInGame() && State.ShowRadar && (!State.InMeeting || !State.HideRadar_During_Meetings);
 }
 
+static bool IsChatOpen()
+{
+    auto hud = Game::HudManager.GetInstance();
+    if (hud == nullptr || hud->fields.Chat == nullptr)
+        return false;
+
+    auto chatState = hud->fields.Chat->fields.state;
+    return chatState == ChatControllerState__Enum::Open ||
+        chatState == ChatControllerState__Enum::Opening ||
+        chatState == ChatControllerState__Enum::Closing;
+}
+
+static bool CanDrawMapPlayers()
+{
+    return !State.PanicMode && IsInGame() && State.ShowRadar_OthersInMap && State.IsNormalMapOpen && !IsChatOpen();
+}
+
 static bool CanDrawReplay()
 {
     return !State.PanicMode && IsInGame() && State.ShowReplay;
@@ -157,9 +174,9 @@ LRESULT __stdcall dWndProc(const HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
         return true;
 
-    if ((IsInGame() || IsInLobby()) && Game::HudManager.GetInstance()->fields.Chat != NULL && shouldKeybindsActivate) {
-        auto chatState = Game::HudManager.GetInstance()->fields.Chat->fields.state;
-        bool chatOpen = chatState == ChatControllerState__Enum::Open || chatState == ChatControllerState__Enum::Opening || chatState == ChatControllerState__Enum::Closing;
+    auto hud = Game::HudManager.GetInstance();
+    if ((IsInGame() || IsInLobby()) && hud != nullptr && hud->fields.Chat != NULL && shouldKeybindsActivate) {
+        bool chatOpen = IsChatOpen();
         bool isScrollModifierAllowed = !chatOpen && !State.InMeeting && State.EnableZoom_ScrollZoom;
         bool isShifted = ImGui::IsKeyDown(VK_SHIFT) || ImGui::IsKeyDown(VK_LSHIFT) || ImGui::IsKeyDown(VK_RSHIFT);
 
@@ -336,6 +353,11 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
         State.TempPanicMode = false;
     }
 
+    if (!State.PanicMode && IsInGame() && !State.InMeeting)
+    {
+        Radar::CaptureMapPlayerPositions();
+    }
+
     if (!State.PanicMode && State.ShowMenu)
     {
         ImGuiRenderer::Submit([]() { Menu::Render(); });
@@ -377,6 +399,11 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
     if (CanDrawRadar())
     {
             ImGuiRenderer::Submit([]() { Radar::Render(); });
+    }
+
+    if (CanDrawMapPlayers())
+    {
+        ImGuiRenderer::Submit([]() { Radar::RenderMapPlayers(); });
     }
 
     if (CanDrawReplay())

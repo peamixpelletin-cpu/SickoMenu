@@ -483,6 +483,12 @@ DO_APP_FUNC(void, HideAndSeekTimerBar_Update, (HideAndSeekTimerBar* __this, Meth
 DO_APP_FUNC(void, LobbyInfoPane_Update, (LobbyInfoPane* __this, MethodInfo* method), "Assembly-CSharp, System.Void LobbyInfoPane::Update()");
 DO_APP_FUNC(void, ShadowCollab_OnEnable, (ShadowCollab* __this, MethodInfo* method), "Assembly-CSharp, System.Void ShadowCollab::OnEnable()");
 DO_APP_FUNC(void, MapBehaviour_FixedUpdate, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::FixedUpdate()");
+DO_APP_FUNC(void, MapBehaviour_ShowNormalMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowNormalMap()");
+DO_APP_FUNC(void, MapBehaviour_ShowInfectedMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowInfectedMap()");
+DO_APP_FUNC(void, MapBehaviour_ShowSabotageMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowSabotageMap()");
+DO_APP_FUNC(void, MapBehaviour_Close, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::Close()");
+DO_APP_FUNC(void, MapBehaviour_OnEnable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnEnable()");
+DO_APP_FUNC(void, MapBehaviour_OnDisable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnDisable()");
 DO_APP_FUNC(void, RoomTracker_FixedUpdate, (RoomTracker* __this, MethodInfo* method), "Assembly-CSharp, System.Void RoomTracker::FixedUpdate()");
 DO_APP_FUNC(void, LogicGameFlowHnS_AdjustEscapeTimer, (LogicGameFlowHnS* __this, float timeDeduction, bool forceDirty, MethodInfo* method), "Assembly-CSharp, System.Void LogicGameFlowHnS::AdjustEscapeTimer(System.Single, System.Boolean)");
 DO_APP_FUNC(void, EngineerRole_FixedUpdate, (EngineerRole* __this, MethodInfo* method), "Assembly-CSharp, System.Void EngineerRole::FixedUpdate()");

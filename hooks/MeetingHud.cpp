@@ -3,6 +3,7 @@
 #include "state.hpp"
 #include "game.h"
 #include "logger.h"
+#include "radar.hpp"
 #include <chrono>
 
 static app::Type* voteSpreaderType = nullptr;
@@ -95,6 +96,8 @@ void dMeetingHud_Awake(MeetingHud* __this, MethodInfo* method) {
         State.voteMonitor.clear();
         State.validDeadBodyIds.clear(); // since dead bodies are cleared every meeting
         State.InMeeting = true;
+        State.IsAdminMapOpen = false;
+        State.IsNormalMapOpen = false;
         Camera_set_orthographicSize(State.FollowerCam, 3.f, NULL); // reset camera height to show the meeting caller/dead body
         Camera_set_orthographicSize(Game::HudManager.GetInstance()->fields.UICamera, 3.f, NULL);
         static std::string strVoteSpreaderType = translate_type_name("VoteSpreader, Assembly-CSharp");
@@ -117,6 +120,7 @@ void dMeetingHud_Close(MeetingHud* __this, MethodInfo* method) {
         State.BlinkPlayersTab = true;
         State.InExileUI = true;
         State.InMeeting = false;
+        Radar::ResetMapPlayerPositionFreeze();
         calloutOver = false;
         if (IsHost() && State.TournamentMode && !State.tournamentFirstMeetingOver) State.tournamentFirstMeetingOver = true;
         if (State.Replay_ClearAfterMeeting) {

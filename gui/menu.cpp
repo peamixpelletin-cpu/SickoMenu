@@ -139,7 +139,7 @@ namespace Menu {
 			{"Text Editor", "Text Editor"}
 		}},
 		{"Radar", {
-			{"Show Radar", ""}, {"Show Dead Bodies", ""}, {"Show Ghosts", ""},
+			{"Show Radar", ""}, {"Show Others in Map", ""}, {"Show Dead Bodies", ""}, {"Show Ghosts", ""},
 			{"Right Click to Teleport", ""}, {"(Shift + Left Click) to Close Room Door", ""},
 			{"Hide Radar During Meetings", ""}, {"Draw Player Icons", ""}, {"Lock Radar Position", ""}, {"Show Border", ""},
 			{"Radar Color", ""}

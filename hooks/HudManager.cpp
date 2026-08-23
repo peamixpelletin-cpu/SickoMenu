@@ -516,6 +516,42 @@ void dMapCountOverlay_OnDisable(MapCountOverlay* __this, MethodInfo* method) {
     MapCountOverlay_OnDisable(__this, method);
 }
 
+void dMapBehaviour_ShowNormalMap(MapBehaviour* __this, MethodInfo* method) {
+    if (State.ShowHookLogs) Log.HookDebug("Hook dMapBehaviour_ShowNormalMap executed", false);
+    State.IsNormalMapOpen = true;
+    MapBehaviour_ShowNormalMap(__this, method);
+}
+
+void dMapBehaviour_ShowInfectedMap(MapBehaviour* __this, MethodInfo* method) {
+    if (State.ShowHookLogs) Log.HookDebug("Hook dMapBehaviour_ShowInfectedMap executed", false);
+    State.IsNormalMapOpen = true;
+    MapBehaviour_ShowInfectedMap(__this, method);
+}
+
+void dMapBehaviour_ShowSabotageMap(MapBehaviour* __this, MethodInfo* method) {
+    if (State.ShowHookLogs) Log.HookDebug("Hook dMapBehaviour_ShowSabotageMap executed", false);
+    State.IsNormalMapOpen = true;
+    MapBehaviour_ShowSabotageMap(__this, method);
+}
+
+void dMapBehaviour_Close(MapBehaviour* __this, MethodInfo* method) {
+    if (State.ShowHookLogs) Log.HookDebug("Hook dMapBehaviour_Close executed", false);
+    State.IsNormalMapOpen = false;
+    MapBehaviour_Close(__this, method);
+}
+
+void dMapBehaviour_OnEnable(MapBehaviour* __this, MethodInfo* method) {
+    if (State.ShowHookLogs) Log.HookDebug("Hook dMapBehaviour_OnEnable executed", false);
+    State.IsNormalMapOpen = true;
+    MapBehaviour_OnEnable(__this, method);
+}
+
+void dMapBehaviour_OnDisable(MapBehaviour* __this, MethodInfo* method) {
+    if (State.ShowHookLogs) Log.HookDebug("Hook dMapBehaviour_OnDisable executed", false);
+    State.IsNormalMapOpen = false;
+    MapBehaviour_OnDisable(__this, method);
+}
+
 void* dIntroCutscene_ShowTeam(IntroCutscene* __this, List_1_PlayerControl_* teamToShow, float duration, MethodInfo* method) {
     if (State.ShowHookLogs) Log.HookDebug("Hook dIntroCutscene_ShowTeam executed", false);
     return IntroCutscene_ShowTeam(__this, teamToShow, duration, method);

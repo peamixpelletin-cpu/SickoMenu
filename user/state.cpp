@@ -2,6 +2,7 @@
 #include "state.hpp"
 #include <iostream>
 #include <fstream>
+#include <future>
 #include "main.h"
 #include "utility.h"
 #include "logger.h"
@@ -9,24 +10,25 @@
 Settings State;
 
 void Settings::Load() {
-    this->SickoVersion = "v4.5.2";
+    this->SickoVersion = "v5.0.1";
 
     auto path = getModulePath(hModule);
     auto configPath = path.parent_path() / "sicko-selected-config.json";
 
-    if (!std::filesystem::exists(configPath))
-        return;
+    if (!std::filesystem::exists(configPath)) {
+        Save();
+    }
 
     try {
         std::ifstream inConfig(configPath);
         nlohmann::ordered_json j = nlohmann::ordered_json::parse(inConfig, NULL, false);
 
 #define JSON_TRYGET(key, value) \
-        try { \
-            j.at(key).get_to(value); \
-        } catch (nlohmann::detail::out_of_range& e) { \
-            Log.Info(e.what()); \
-        }
+    try { \
+        j.at(key).get_to(value); \
+    } catch (nlohmann::detail::out_of_range& e) { \
+        Log.Info(e.what()); \
+    }
 
         if (State.selectedConfig != "") JSON_TRYGET("SelectedConfig", this->selectedConfig);
     }
@@ -44,15 +46,15 @@ void Settings::Load() {
         nlohmann::ordered_json j = nlohmann::ordered_json::parse(inSettings, NULL, false);
 
 #define JSON_TRYGET(key, value) \
-        try { \
-            j.at(key).get_to(value); \
-        } catch (nlohmann::detail::out_of_range& e) { \
-            Log.Info(e.what()); \
-        }
+    try { \
+        j.at(key).get_to(value); \
+    } catch (nlohmann::detail::out_of_range& e) { \
+        Log.Info(e.what()); \
+    }
 
         JSON_TRYGET("HasOpenedMenuBefore", this->HasOpenedMenuBefore);
         JSON_TRYGET("ShowMenuOnStartup", this->ShowMenuOnStartup);
-        if (this->ShowMenuOnStartup) JSON_TRYGET("ShowMenu", this->ShowMenu);
+        if (this->ShowMenuOnStartup) JSON_TRYGET("ShowMenu", this->ShowMenuOnStartup);
         JSON_TRYGET("KeyBinds", this->KeyBinds);
 #ifdef _DEBUG
         JSON_TRYGET("ShowDebug", this->showDebugTab);
@@ -91,7 +93,7 @@ void Settings::Load() {
         JSON_TRYGET("FakeFriendCode", this->FakeFriendCode);
         JSON_TRYGET("SpoofPlatform", this->SpoofPlatform);
         JSON_TRYGET("FakePlatform", this->FakePlatform);
-		JSON_TRYGET("SpoofPsnId", this->SpoofPsnId);
+        JSON_TRYGET("SpoofPsnId", this->SpoofPsnId);
         JSON_TRYGET("FakePsnId", this->FakePsnId);
         JSON_TRYGET("SpoofXboxId", this->SpoofXboxId);
         JSON_TRYGET("FakeXboxId", this->FakeXboxId);
@@ -100,12 +102,14 @@ void Settings::Load() {
         // JSON_TRYGET("FakeAUVersion_", this->FakeAUVersion);
         JSON_TRYGET("PanicWarning", this->PanicWarning);
         JSON_TRYGET("DisableAnimations", this->DisableAnimations);
+        JSON_TRYGET("ClickThroughMenuUI", this->ClickThroughMenuUI);
         JSON_TRYGET("AnimationSpeed", this->AnimationSpeed);
+        JSON_TRYGET("ShowUiBorders", this->ShowUiBorders);
         JSON_TRYGET("RoundingRadiusMultiplier", this->RoundingRadiusMultiplier);
-		this->RoundingRadiusMultiplier = std::clamp(this->RoundingRadiusMultiplier, 0.f, 2.f);
+        this->RoundingRadiusMultiplier = std::clamp(this->RoundingRadiusMultiplier, 0.f, 2.f);
         JSON_TRYGET("ExtraCommands", this->ExtraCommands);
 
-        JSON_TRYGET("NoAbilityCD", this->NoAbilityCD);
+        // JSON_TRYGET("NoAbilityCD", this->NoAbilityCD);
         JSON_TRYGET("DarkMode", this->DarkMode);
         JSON_TRYGET("CustomGameTheme", this->CustomGameTheme);
         JSON_TRYGET("GameTextColor_R", this->GameTextColor.x);
@@ -121,6 +125,14 @@ void Settings::Load() {
         //JSON_TRYGET("CycleBetweenOutfits", this->CycleBetweenOutfits);
         //JSON_TRYGET("ChangeBodyType", this->ChangeBodyType);
         //JSON_TRYGET("BodyType", this->BodyType);
+        JSON_TRYGET("ShowTime", this->ShowTime);
+        JSON_TRYGET("TimeOffsetMinutes", this->TimeOffsetMinutes);
+        JSON_TRYGET("NegativeTimeOffset", this->NegativeTimeOffset);
+        JSON_TRYGET("Use12HourFormat", this->Use12HourFormat);
+        JSON_TRYGET("ShowSeconds", this->ShowSeconds);
+        JSON_TRYGET("UseLeadingZeroForHours", this->UseLeadingZeroForHours);
+        JSON_TRYGET("AmString", this->AmString);
+        JSON_TRYGET("PmString", this->PmString);
         JSON_TRYGET("CycleInMeeting", this->CycleInMeeting);
         JSON_TRYGET("CycleTimer", this->CycleTimer);
         JSON_TRYGET("CyclerUserNames", this->cyclerUserNames);
@@ -146,6 +158,80 @@ void Settings::Load() {
         JSON_TRYGET("FakeRole", this->FakeRole);
         JSON_TRYGET("FakeRoleId", this->FakeRoleId);
         JSON_TRYGET("AutoFakeRole", this->AutoFakeRole);
+        JSON_TRYGET("PauseVentBlockingWhileVenting", this->PauseVentBlockingWhileVenting);
+
+        JSON_TRYGET("AutoApplyHostPreset", this->AutoApplyHostPreset);
+        if (j.contains("HostPresets") && j["HostPresets"].is_array()) {
+            this->HostPresets.clear();
+            for (auto& p : j["HostPresets"]) {
+                HostPreset preset;
+                if (p.contains("Name")) preset.Name = p["Name"].get<std::string>();
+                if (p.contains("PlayerSpeed")) preset.PlayerSpeed = p["PlayerSpeed"].get<float>();
+                if (p.contains("CrewVision")) preset.CrewmateVision = p["CrewVision"].get<float>();
+                if (p.contains("ImpVision")) preset.ImpostorVision = p["ImpVision"].get<float>();
+                if (p.contains("KillCooldown")) preset.KillCooldown = p["KillCooldown"].get<float>();
+                if (p.contains("KillDistance")) preset.KillDistance = p["KillDistance"].get<int>();
+                if (p.contains("NumImpostors")) preset.NumImpostors = p["NumImpostors"].get<int>();
+                if (p.contains("MaxPlayers")) preset.MaxPlayers = p["MaxPlayers"].get<int>();
+                if (p.contains("MapId")) preset.MapId = p["MapId"].get<uint8_t>();
+                if (p.contains("VisualTasks")) preset.VisualTasks = p["VisualTasks"].get<bool>();
+                if (p.contains("ConfirmImpostor")) preset.ConfirmImpostor = p["ConfirmImpostor"].get<bool>();
+                if (p.contains("AnonymousVotes")) preset.AnonymousVotes = p["AnonymousVotes"].get<bool>();
+                if (p.contains("NumEmergencyMeetings")) preset.NumEmergencyMeetings = p["NumEmergencyMeetings"].get<int>();
+                if (p.contains("EmergencyCooldown")) preset.EmergencyCooldown = p["EmergencyCooldown"].get<int>();
+                if (p.contains("DiscussionTime")) preset.DiscussionTime = p["DiscussionTime"].get<int>();
+                if (p.contains("VotingTime")) preset.VotingTime = p["VotingTime"].get<int>();
+                if (p.contains("TaskBarMode")) preset.TaskBarMode = p["TaskBarMode"].get<int>();
+                if (p.contains("NumCommonTasks")) preset.NumCommonTasks = p["NumCommonTasks"].get<int>();
+                if (p.contains("NumLongTasks")) preset.NumLongTasks = p["NumLongTasks"].get<int>();
+                if (p.contains("NumShortTasks")) preset.NumShortTasks = p["NumShortTasks"].get<int>();
+                if (p.contains("ShapeshifterCooldown")) preset.ShapeshifterCooldown = p["ShapeshifterCooldown"].get<float>();
+                if (p.contains("ShapeshifterDuration")) preset.ShapeshifterDuration = p["ShapeshifterDuration"].get<float>();
+                if (p.contains("ShapeshifterLeaveSkin")) preset.ShapeshifterLeaveSkin = p["ShapeshifterLeaveSkin"].get<bool>();
+                if (p.contains("GuardianAngelCooldown")) preset.GuardianAngelCooldown = p["GuardianAngelCooldown"].get<float>();
+                if (p.contains("GuardianAngelProtectVisible")) preset.GuardianAngelProtectVisible = p["GuardianAngelProtectVisible"].get<bool>();
+                if (p.contains("GuardianAngelProtectDuration")) preset.GuardianAngelProtectDuration = p["GuardianAngelProtectDuration"].get<float>();
+                if (p.contains("ScientistCooldown")) preset.ScientistCooldown = p["ScientistCooldown"].get<float>();
+                if (p.contains("ScientistBatteryCharge")) preset.ScientistBatteryCharge = p["ScientistBatteryCharge"].get<float>();
+                if (p.contains("EngineerCooldown")) preset.EngineerCooldown = p["EngineerCooldown"].get<float>();
+                if (p.contains("EngineerInVentMaxTime")) preset.EngineerInVentMaxTime = p["EngineerInVentMaxTime"].get<float>();
+                if (p.contains("PhantomCooldown")) preset.PhantomCooldown = p["PhantomCooldown"].get<float>();
+                if (p.contains("PhantomDuration")) preset.PhantomDuration = p["PhantomDuration"].get<float>();
+                if (p.contains("TrackerCooldown")) preset.TrackerCooldown = p["TrackerCooldown"].get<float>();
+                if (p.contains("TrackerDuration")) preset.TrackerDuration = p["TrackerDuration"].get<float>();
+                if (p.contains("TrackerDelay")) preset.TrackerDelay = p["TrackerDelay"].get<float>();
+                if (p.contains("NoisemakerAlertDuration")) preset.NoisemakerAlertDuration = p["NoisemakerAlertDuration"].get<float>();
+                if (p.contains("NoisemakerImpostorAlert")) preset.NoisemakerImpostorAlert = p["NoisemakerImpostorAlert"].get<bool>();
+                if (p.contains("ViperDissolveTime")) preset.ViperDissolveTime = p["ViperDissolveTime"].get<float>();
+                if (p.contains("DetectiveSuspectLimit")) preset.DetectiveSuspectLimit = p["DetectiveSuspectLimit"].get<float>();
+                if (p.contains("JudgeTaskRequirement")) preset.JudgeTaskRequirement = p["JudgeTaskRequirement"].get<float>();
+                if (p.contains("RoleRates") && p["RoleRates"].is_array()) {
+                    for (auto& r : p["RoleRates"]) {
+                        if (r.contains("Role") && r.contains("Count") && r.contains("Chance")) {
+                            Settings::RolePreset rp;
+                            rp.Count = r["Count"].get<int32_t>();
+                            rp.Chance = r["Chance"].get<int32_t>();
+                            preset.RoleRates[r["Role"].get<int>()] = rp;
+                        }
+                    }
+                }
+                this->HostPresets.push_back(preset);
+            }
+        }
+        if (j.contains("CosmeticPresets") && j["CosmeticPresets"].is_array()) {
+            this->CosmeticPresets.clear();
+            for (auto& p : j["CosmeticPresets"]) {
+                CosmeticPreset cp;
+                if (p.contains("Name")) cp.Name = p["Name"].get<std::string>();
+                if (p.contains("HatId")) cp.HatId = p["HatId"].get<std::string>();
+                if (p.contains("SkinId")) cp.SkinId = p["SkinId"].get<std::string>();
+                if (p.contains("VisorId")) cp.VisorId = p["VisorId"].get<std::string>();
+                if (p.contains("PetId")) cp.PetId = p["PetId"].get<std::string>();
+                if (p.contains("NamePlateId")) cp.NamePlateId = p["NamePlateId"].get<std::string>();
+                if (p.contains("ColorId")) cp.ColorId = p["ColorId"].get<int32_t>();
+                this->CosmeticPresets.push_back(cp);
+            }
+        }
 
         JSON_TRYGET("NoGameEnd", this->NoGameEnd);
         JSON_TRYGET("DisableMeetings", this->DisableMeetings);
@@ -154,11 +240,11 @@ void Settings::Load() {
         JSON_TRYGET("DisableRoleManager", this->DisableRoleManager);
 
         JSON_TRYGET("ShowRadar", this->ShowRadar);
-        JSON_TRYGET("ShowRadar_OthersInMap", this->ShowRadar_OthersInMap);
         JSON_TRYGET("ShowRadar_DeadBodies", this->ShowRadar_DeadBodies);
         JSON_TRYGET("ShowRadar_Ghosts", this->ShowRadar_Ghosts);
         JSON_TRYGET("HideRadar_During_Meetings", this->HideRadar_During_Meetings);
         JSON_TRYGET("ShowRadar_RightClickTP", this->ShowRadar_RightClickTP);
+        JSON_TRYGET("ShowRadar_ShiftLeftClickClosesRoomDoor", this->ShowRadar_ShiftLeftClickClosesRoomDoor);
         JSON_TRYGET("LockRadar", this->LockRadar);
         JSON_TRYGET("RadarColor_R", this->SelectedColor.x);
         JSON_TRYGET("RadarColor_G", this->SelectedColor.y);
@@ -193,11 +279,17 @@ void Settings::Load() {
         JSON_TRYGET("Wallhack", this->Wallhack);
         JSON_TRYGET("FreeCamSpeed", this->FreeCamSpeed);
         JSON_TRYGET("ZoomLevel", this->CameraHeight);
+        JSON_TRYGET("EnableZoom_ScrollZoom", this->EnableZoom_ScrollZoom);
+        JSON_TRYGET("EnableZoom_SmoothZoom", this->EnableZoom_SmoothZoom);
+        JSON_TRYGET("EnableZoom_ShowShadows", this->EnableZoom_ShowShadows);
         JSON_TRYGET("UnlockVents", this->UnlockVents);
+        JSON_TRYGET("RolesBypassCommsSabotage", this->RolesBypassCommsSabotage);
+        JSON_TRYGET("KillImmunity", this->KillImmunity);
         JSON_TRYGET("UnlockKillButton", this->UnlockKillButton);
         JSON_TRYGET("ChatPaste", this->ChatPaste);
         JSON_TRYGET("RevealRoles", this->RevealRoles);
         JSON_TRYGET("AbbreviatedRoleNames", this->AbbreviatedRoleNames);
+        JSON_TRYGET("LocalizeRoleNames", this->LocalizeRoleNames);
         JSON_TRYGET("PlayerColoredDots", this->PlayerColoredDots);
         JSON_TRYGET("ShowPlayerInfo", this->ShowPlayerInfo);
         JSON_TRYGET("HideWhitelistedPlayerInfo", this->HideWhitelistedPlayerInfo);
@@ -255,14 +347,20 @@ void Settings::Load() {
         JSON_TRYGET("FakeAlive", this->FakeAlive);
         JSON_TRYGET("ShowHost", this->ShowHost);
         JSON_TRYGET("HideWatermark", this->HideWatermark);
+        JSON_TRYGET("HideModStamp", this->HideModStamp);
         JSON_TRYGET("ShowVoteKicks", this->ShowVoteKicks);
         JSON_TRYGET("ShowFps", this->ShowFps);
         JSON_TRYGET("DoTasksAsImpostor", this->DoTasksAsImpostor);
         JSON_TRYGET("AutoCopyLobbyCode", this->AutoCopyLobbyCode);
+        JSON_TRYGET("AutoKickSlackers", this->AutoKickSlackers);
+        JSON_TRYGET("AutoKickSlackersIgnoreWhitelist", this->AutoKickSlackersIgnoreWhitelist);
+        JSON_TRYGET("AutoKickSlackersThreshold", this->AutoKickSlackersThreshold);
+        JSON_TRYGET("AutoKickSlackersGrace", this->AutoKickSlackersGrace);
         JSON_TRYGET("DisableLobbyMusic", this->DisableLobbyMusic);
         JSON_TRYGET("ReportOnMurder", this->ReportOnMurder);
         JSON_TRYGET("PreventSelfReport", this->PreventSelfReport);
-        //JSON_TRYGET("AutoRejoin", this->AutoRejoin);
+        JSON_TRYGET("AutoRejoin", this->AutoRejoin);
+        JSON_TRYGET("DisableShushAnimation", this->DisableShushAnimation);
         JSON_TRYGET("OldStylePingText", this->OldStylePingText);
         JSON_TRYGET("NoSeekerAnim", this->NoSeekerAnim);
         JSON_TRYGET("BetterChatNotifications", this->BetterChatNotifications);
@@ -293,6 +391,7 @@ void Settings::Load() {
         JSON_TRYGET("ShiftRightClickTP", this->ShiftRightClickTP);
         JSON_TRYGET("RotateRadius", this->RotateRadius);
         JSON_TRYGET("RelativeTeleport", this->RelativeTeleport);
+        JSON_TRYGET("IgnoreVentTpSelf", this->IgnoreVentTpSelf);
         JSON_TRYGET("ShowKillCD", this->ShowKillCD);
 
         JSON_TRYGET("Confuser", this->confuser);
@@ -301,6 +400,21 @@ void Settings::Load() {
         JSON_TRYGET("ConfuseOnKill", this->confuseOnKill);
         JSON_TRYGET("ConfuseOnVent", this->confuseOnVent);
         JSON_TRYGET("ConfuseOnMeeting", this->confuseOnMeeting);
+
+        JSON_TRYGET("InfiniteMeetings", this->InfiniteMeetings);
+        JSON_TRYGET("NoLadderZiplineCooldown", this->NoLadderZiplineCooldown);
+        JSON_TRYGET("Engineer_NoVentCooldown", this->Engineer_NoVentCooldown);
+        JSON_TRYGET("Engineer_InfiniteVentTime", this->Engineer_InfiniteVentTime);
+        JSON_TRYGET("Scientist_NoVitalsCooldown", this->Scientist_NoVitalsCooldown);
+        JSON_TRYGET("Scientist_InfiniteBattery", this->Scientist_InfiniteBattery);
+        JSON_TRYGET("Tracker_NoTrackingCooldown", this->Tracker_NoTrackingCooldown);
+        JSON_TRYGET("Tracker_InfiniteTracking", this->Tracker_InfiniteTracking);
+        JSON_TRYGET("Detective_NoInterrogateCooldown", this->Detective_NoInterrogateCooldown);
+        JSON_TRYGET("Judge_NoTaskRequirement", this->Judge_NoTaskRequirement);
+        JSON_TRYGET("Judge_InfiniteOverrules", this->Judge_InfiniteOverrules);
+        JSON_TRYGET("GuardianAngel_NoProtectCooldown", this->GuardianAngel_NoProtectCooldown);
+        JSON_TRYGET("Impostor_NoKillCooldown", this->Impostor_NoKillCooldown);
+        JSON_TRYGET("Shapeshifter_InfiniteShapeshiftDuration", this->Shapeshifter_InfiniteShapeshiftDuration);
 
         JSON_TRYGET("CyclerNameGeneration", this->cyclerNameGeneration);
         JSON_TRYGET("ConfuserNameGeneration", this->confuserNameGeneration);
@@ -318,6 +432,8 @@ void Settings::Load() {
         JSON_TRYGET("AlwaysAllowStart", this->AlwaysAllowStart);
         JSON_TRYGET("ModifyStartCountdown", this->ModifyStartCountdown);
         JSON_TRYGET("StartCountdown", this->StartCountdown);
+        JSON_TRYGET("GameModeDuration", this->GameModeDuration);
+        this->GameModeDuration = std::clamp(this->GameModeDuration, 100, 500);
 
         JSON_TRYGET("Enable_SMAC", this->Enable_SMAC);
         JSON_TRYGET("SMAC_Punishment", this->SMAC_Punishment);
@@ -325,7 +441,7 @@ void Settings::Load() {
         JSON_TRYGET("SMAC_AddToBlacklist", this->SMAC_AddToBlacklist);
         JSON_TRYGET("SMAC_PunishBlacklist", this->SMAC_PunishBlacklist);
         JSON_TRYGET("SMAC_IgnoreWhitelist", this->SMAC_IgnoreWhitelist);
-        JSON_TRYGET("SMAC_CheckAUM", this->SMAC_CheckAUM);
+        JSON_TRYGET("SMAC_CheckOtherCheats", this->SMAC_CheckOtherCheats);
         JSON_TRYGET("SMAC_CheckSicko", this->SMAC_CheckSicko);
         JSON_TRYGET("SMAC_CheckBadNames", this->SMAC_CheckBadNames);
         JSON_TRYGET("SMAC_CheckColor", this->SMAC_CheckColor);
@@ -348,7 +464,18 @@ void Settings::Load() {
         JSON_TRYGET("SMAC_LowLevel", this->SMAC_LowLevel);
         JSON_TRYGET("SMAC_CheckBadWords", this->SMAC_CheckBadWords);
         JSON_TRYGET("SMAC_BadWords", this->SMAC_BadWords);
+        JSON_TRYGET("SMAC_CheckFriendcode", this->SMAC_CheckFriendcode);
         JSON_TRYGET("ChatPresets", this->ChatPresets);
+
+        JSON_TRYGET("Mod_EnableModeration", this->Mod_EnableModeration);
+        JSON_TRYGET("Mod_SickoSocials", this->Mod_SickoSocials);
+        JSON_TRYGET("Mod_RoleNames", this->Mod_RoleNames);
+        JSON_TRYGET("Mod_RoleMembers", this->Mod_RoleMembers);
+        JSON_TRYGET("Mod_RolePermissions", this->Mod_RolePermissions);
+        JSON_TRYGET("Mod_RoleRank", this->Mod_RoleRank);
+        JSON_TRYGET("SMAC_CheckStartWords", this->SMAC_CheckStartWords);
+        JSON_TRYGET("SMAC_StartWordsThreshold", this->SMAC_StartWordsThreshold);
+        JSON_TRYGET("SMAC_StartWords", this->SMAC_StartWords);
 
         JSON_TRYGET("Destruct_IgnoreWhitelist", this->Destruct_IgnoreWhitelist);
         JSON_TRYGET("Ban_IgnoreWhitelist", this->Ban_IgnoreWhitelist);
@@ -366,7 +493,7 @@ void Settings::Load() {
         JSON_TRYGET("WarnReasons", this->WarnReasons);
         JSON_TRYGET("LockedNames", this->LockedNames);
 
-        JSON_TRYGET("DisableMedbayScan", this->DisableMedbayScan);
+        // JSON_TRYGET("DisableMedbayScan", this->DisableMedbayScan);
 
         JSON_TRYGET("CrewmateGhostColor_R", this->CrewmateGhostColor.x);
         JSON_TRYGET("CrewmateGhostColor_G", this->CrewmateGhostColor.y);
@@ -424,6 +551,10 @@ void Settings::Load() {
         JSON_TRYGET("ViperColor_G", this->ViperColor.y);
         JSON_TRYGET("ViperColor_B", this->ViperColor.z);
         JSON_TRYGET("ViperColor_A", this->ViperColor.w);
+        JSON_TRYGET("JudgeColor_R", this->JudgeColor.x);
+        JSON_TRYGET("JudgeColor_G", this->JudgeColor.y);
+        JSON_TRYGET("JudgeColor_B", this->JudgeColor.z);
+        JSON_TRYGET("JudgeColor_A", this->JudgeColor.w);
 
         JSON_TRYGET("HostColor_R", this->HostColor.x);
         JSON_TRYGET("HostColor_G", this->HostColor.y);
@@ -490,7 +621,17 @@ void Settings::Load() {
             }
         }
 
-		if (j.contains("PlayerHistory") && j["PlayerHistory"].is_array()) {
+        if (j.contains("LobbyHistory") && j["LobbyHistory"].is_array()) {
+            this->LobbyHistory.clear();
+            for (auto& item : j["LobbyHistory"]) {
+                Settings::RememberedLobby l;
+                if (item.contains("Code"))     l.Code = item["Code"].get<std::string>();
+                if (item.contains("HostName")) l.HostName = item["HostName"].get<std::string>();
+                this->LobbyHistory.push_front(l);
+            }
+        }
+
+        if (j.contains("PlayerHistory") && j["PlayerHistory"].is_array()) {
             this->PlayerHistory.clear();
             for (auto& item : j["PlayerHistory"]) {
                 Settings::RememberedPlayer p;
@@ -610,11 +751,13 @@ void Settings::Save() {
                 // { "FakeAUVersion_", this->FakeAUVersion },
                 { "PanicWarning", this->PanicWarning },
                 { "DisableAnimations", this->DisableAnimations },
+                { "ClickThroughMenuUI", this->ClickThroughMenuUI },
                 { "AnimationSpeed", this->AnimationSpeed },
+                { "ShowUiBorders", this->ShowUiBorders },
                 { "RoundingRadiusMultiplier", this->RoundingRadiusMultiplier },
                 { "ExtraCommands", this->ExtraCommands },
 
-                { "NoAbilityCD", this->NoAbilityCD },
+                // { "NoAbilityCD", this->NoAbilityCD },
                 { "DarkMode", this->DarkMode },
                 { "CustomGameTheme", this->CustomGameTheme },
                 { "GameTextColor_R", this->GameTextColor.x },
@@ -630,6 +773,14 @@ void Settings::Save() {
                 //{ "CycleBetweenOutfits", this->CycleBetweenOutfits },
                 //{ "ChangeBodyType", this->ChangeBodyType },
                 //{ "BodyType", this->BodyType },
+                { "ShowTime", this->ShowTime },
+                { "TimeOffsetMinutes", this->TimeOffsetMinutes },
+                { "NegativeTimeOffset", this->NegativeTimeOffset },
+                { "Use12HourFormat", this->Use12HourFormat },
+                { "ShowSeconds", this->ShowSeconds },
+                { "UseLeadingZeroForHours", this->UseLeadingZeroForHours },
+                { "AmString", this->AmString },
+                { "PmString", this->PmString },
                 { "CycleInMeeting", this->CycleInMeeting },
                 { "CycleTimer", this->CycleTimer },
                 { "CyclerUserNames", this->cyclerUserNames },
@@ -656,6 +807,7 @@ void Settings::Save() {
                 { "FakeRole", this->FakeRole },
                 { "FakeRoleId", this->FakeRoleId },
                 { "AutoFakeRole", this->AutoFakeRole },
+                { "PauseVentBlockingWhileVenting", this->PauseVentBlockingWhileVenting },
 
                 { "NoGameEnd", this->NoGameEnd },
                 { "DisableMeetings", this->DisableMeetings },
@@ -664,12 +816,12 @@ void Settings::Save() {
                 { "DisableRoleManager", this->DisableRoleManager },
 
                 { "ShowRadar", this->ShowRadar },
-                { "ShowRadar_OthersInMap", this->ShowRadar_OthersInMap },
                 { "ShowRadar_DeadBodies", this->ShowRadar_DeadBodies },
                 { "ShowRadar_Ghosts", this->ShowRadar_Ghosts },
                 { "HideRadar_During_Meetings", this->HideRadar_During_Meetings },
                 { "LockRadar", this->LockRadar },
                 { "ShowRadar_RightClickTP", this->ShowRadar_RightClickTP },
+                { "ShowRadar_ShiftLeftClickClosesRoomDoor", this->ShowRadar_ShiftLeftClickClosesRoomDoor },
                 { "RadarColor_R", this->SelectedColor.x },
                 { "RadarColor_G", this->SelectedColor.y },
                 { "RadarColor_B", this->SelectedColor.z },
@@ -689,6 +841,73 @@ void Settings::Save() {
                 { "ReplayLastSecondsValue", this->Replay_LastSecondsValue },
                 { "ReplayClearAfterMeeting", this->Replay_ClearAfterMeeting },
 
+                { "AutoApplyHostPreset", this->AutoApplyHostPreset },
+                { "HostPresets", [&]() {
+                    nlohmann::json arr = nlohmann::json::array();
+                    for (auto& p : this->HostPresets) {
+                        arr.push_back({
+                            { "Name", p.Name },
+                            { "PlayerSpeed", p.PlayerSpeed },
+                            { "CrewVision", p.CrewmateVision },
+                            { "ImpVision", p.ImpostorVision },
+                            { "KillCooldown", p.KillCooldown },
+                            { "KillDistance", p.KillDistance },
+                            { "NumImpostors", p.NumImpostors },
+                            { "MaxPlayers", p.MaxPlayers },
+                            { "MapId", p.MapId },
+                            { "VisualTasks", p.VisualTasks },
+                            { "ConfirmImpostor", p.ConfirmImpostor },
+                            { "AnonymousVotes", p.AnonymousVotes },
+                            { "NumEmergencyMeetings", p.NumEmergencyMeetings },
+                            { "EmergencyCooldown", p.EmergencyCooldown },
+                            { "DiscussionTime", p.DiscussionTime },
+                            { "VotingTime", p.VotingTime },
+                            { "TaskBarMode", p.TaskBarMode },
+                            { "NumCommonTasks", p.NumCommonTasks },
+                            { "NumLongTasks", p.NumLongTasks },
+                            { "NumShortTasks", p.NumShortTasks },
+                            { "ShapeshifterCooldown", p.ShapeshifterCooldown },
+                            { "ShapeshifterDuration", p.ShapeshifterDuration },
+                            { "ShapeshifterLeaveSkin", p.ShapeshifterLeaveSkin },
+                            { "GuardianAngelCooldown", p.GuardianAngelCooldown },
+                            { "GuardianAngelProtectVisible", p.GuardianAngelProtectVisible },
+                            { "GuardianAngelProtectDuration", p.GuardianAngelProtectDuration },
+                            { "ScientistCooldown", p.ScientistCooldown },
+                            { "ScientistBatteryCharge", p.ScientistBatteryCharge },
+                            { "EngineerCooldown", p.EngineerCooldown },
+                            { "EngineerInVentMaxTime", p.EngineerInVentMaxTime },
+                            { "PhantomCooldown", p.PhantomCooldown },
+                            { "PhantomDuration", p.PhantomDuration },
+                            { "TrackerCooldown", p.TrackerCooldown },
+                            { "TrackerDuration", p.TrackerDuration },
+                            { "TrackerDelay", p.TrackerDelay },
+                            { "NoisemakerAlertDuration", p.NoisemakerAlertDuration },
+                            { "NoisemakerImpostorAlert", p.NoisemakerImpostorAlert },
+                            { "ViperDissolveTime", p.ViperDissolveTime },
+                            { "DetectiveSuspectLimit", p.DetectiveSuspectLimit },
+                            { "JudgeTaskRequirement", p.JudgeTaskRequirement },
+                            { "RoleRates", [&]() {
+                                nlohmann::json rarr = nlohmann::json::array();
+                                for (auto& [role, rp] : p.RoleRates) {
+                                    rarr.push_back({ {"Role", role}, {"Count", rp.Count}, {"Chance", rp.Chance} });
+                                }
+                                return rarr;
+                            }() }
+                        });
+                    }
+                    return arr;
+                    }() },
+                { "CosmeticPresets", [&]() {
+                    nlohmann::json arr = nlohmann::json::array();
+                    for (auto& p : this->CosmeticPresets) {
+                        arr.push_back({
+                            { "Name", p.Name }, { "HatId", p.HatId }, { "SkinId", p.SkinId },
+                            { "VisorId", p.VisorId }, { "PetId", p.PetId },
+                            { "NamePlateId", p.NamePlateId }, { "ColorId", p.ColorId }
+                        });
+                    }
+                    return arr;
+                }() },
                 { "ShowEsp", this->ShowEsp },
                 { "ShowEsp_Ghosts", this->ShowEsp_Ghosts },
                 { "ShowEsp_Box", this->ShowEsp_Box },
@@ -703,11 +922,17 @@ void Settings::Save() {
                 { "Wallhack", this->Wallhack },
                 { "FreeCamSpeed", this->FreeCamSpeed },
                 { "ZoomLevel", this->CameraHeight },
+                { "EnableZoom_ScrollZoom", this->EnableZoom_ScrollZoom },
+                { "EnableZoom_SmoothZoom", this->EnableZoom_SmoothZoom },
+                { "EnableZoom_ShowShadows", this->EnableZoom_ShowShadows },
                 { "UnlockVents", this->UnlockVents },
+                { "RolesBypassCommsSabotage", this->RolesBypassCommsSabotage },
+                { "KillImmunity", this->KillImmunity },
                 { "UnlockKillButton", this->UnlockKillButton },
                 { "ChatPaste", this->ChatPaste },
                 { "RevealRoles", this->RevealRoles },
                 { "AbbreviatedRoleNames", this->AbbreviatedRoleNames },
+                { "LocalizeRoleNames", this->LocalizeRoleNames },
                 { "PlayerColoredDots", this->PlayerColoredDots },
                 { "ShowPlayerInfo", this->ShowPlayerInfo },
                 { "HideWhitelistedPlayerInfo", this->HideWhitelistedPlayerInfo },
@@ -767,15 +992,21 @@ void Settings::Save() {
                 { "AutoKill", this->AutoKill },
                 { "FakeAlive", this->FakeAlive },
                 { "HideWatermark", this->HideWatermark },
+                { "HideModStamp", this->HideModStamp },
                 { "ShowHost", this->ShowHost },
                 { "ShowVoteKicks", this->ShowVoteKicks },
                 { "ShowFps", this->ShowFps },
                 { "DoTasksAsImpostor", this->DoTasksAsImpostor },
                 { "AutoCopyLobbyCode", this->AutoCopyLobbyCode },
+                { "AutoKickSlackers", this->AutoKickSlackers },
+                { "AutoKickSlackersIgnoreWhitelist", this->AutoKickSlackersIgnoreWhitelist },
+                { "AutoKickSlackersThreshold", this->AutoKickSlackersThreshold },
+                { "AutoKickSlackersGrace", this->AutoKickSlackersGrace },
                 { "DisableLobbyMusic", this->DisableLobbyMusic },
                 { "ReportOnMurder", this->ReportOnMurder },
                 { "PreventSelfReport", this->PreventSelfReport },
-                //{ "AutoRejoin", this->AutoRejoin },
+                { "AutoRejoin", this->AutoRejoin },
+                { "DisableShushAnimation", this->DisableShushAnimation },
                 { "OldStylePingText", this->OldStylePingText },
                 { "NoSeekerAnim", this->NoSeekerAnim },
                 { "BetterChatNotifications", this->BetterChatNotifications },
@@ -804,6 +1035,7 @@ void Settings::Save() {
                 { "ShiftRightClickTP", this->ShiftRightClickTP },
                 { "RotateRadius", this->RotateRadius },
                 { "RelativeTeleport", this->RelativeTeleport },
+                { "IgnoreVentTpSelf", this->IgnoreVentTpSelf },
                 { "ShowKillCD", this->ShowKillCD },
 
                 { "Confuser", this->confuser },
@@ -812,6 +1044,21 @@ void Settings::Save() {
                 { "ConfuseOnKill", this->confuseOnKill },
                 { "ConfuseOnVent", this->confuseOnVent },
                 { "ConfuseOnMeeting", this->confuseOnMeeting },
+
+                { "InfiniteMeetings", this->InfiniteMeetings },
+                { "NoLadderZiplineCooldown", this->NoLadderZiplineCooldown },
+                { "Engineer_NoVentCooldown", this->Engineer_NoVentCooldown },
+                { "Engineer_InfiniteVentTime", this->Engineer_InfiniteVentTime },
+                { "Scientist_NoVitalsCooldown", this->Scientist_NoVitalsCooldown },
+                { "Scientist_InfiniteBattery", this->Scientist_InfiniteBattery },
+                { "Tracker_NoTrackingCooldown", this->Tracker_NoTrackingCooldown },
+                { "Tracker_InfiniteTracking", this->Tracker_InfiniteTracking },
+                { "Detective_NoInterrogateCooldown", this->Detective_NoInterrogateCooldown },
+                { "Judge_NoTaskRequirement", this->Judge_NoTaskRequirement },
+                { "Judge_InfiniteOverrules", this->Judge_InfiniteOverrules },
+                { "GuardianAngel_NoProtectCooldown", this->GuardianAngel_NoProtectCooldown },
+                { "Impostor_NoKillCooldown", this->Impostor_NoKillCooldown },
+                { "Shapeshifter_InfiniteShapeshiftDuration", this->Shapeshifter_InfiniteShapeshiftDuration },
 
                 { "CyclerNameGeneration", this->cyclerNameGeneration },
                 { "ConfuserNameGeneration", this->confuserNameGeneration },
@@ -829,6 +1076,7 @@ void Settings::Save() {
                 { "AlwaysAllowStart", this->AlwaysAllowStart },
                 { "ModifyStartCountdown", this->ModifyStartCountdown },
                 { "StartCountdown", this->StartCountdown },
+                { "GameModeDuration", this->GameModeDuration },
 
                 { "Enable_SMAC", this->Enable_SMAC },
                 { "SMAC_Punishment", this->SMAC_Punishment },
@@ -836,7 +1084,7 @@ void Settings::Save() {
                 { "SMAC_AddToBlacklist", this->SMAC_AddToBlacklist },
                 { "SMAC_PunishBlacklist", this->SMAC_PunishBlacklist },
                 { "SMAC_IgnoreWhitelist", this->SMAC_IgnoreWhitelist },
-                { "SMAC_CheckAUM", this->SMAC_CheckAUM },
+                { "SMAC_CheckOtherCheats", this->SMAC_CheckOtherCheats },
                 { "SMAC_CheckSicko", this->SMAC_CheckSicko },
                 { "SMAC_CheckBadNames", this->SMAC_CheckBadNames },
                 { "SMAC_CheckColor", this->SMAC_CheckColor },
@@ -859,7 +1107,18 @@ void Settings::Save() {
                 { "SMAC_LowLevel", this->SMAC_LowLevel },
                 { "SMAC_CheckBadWords", this->SMAC_CheckBadWords },
                 { "SMAC_BadWords", this->SMAC_BadWords },
+                { "SMAC_CheckFriendcode", this->SMAC_CheckFriendcode },
                 { "ChatPresets", this->ChatPresets },
+
+                { "Mod_EnableModeration", this->Mod_EnableModeration },
+                { "Mod_SickoSocials", this->Mod_SickoSocials },
+                { "Mod_RoleNames", this->Mod_RoleNames },
+                { "Mod_RoleMembers", this->Mod_RoleMembers },
+                { "Mod_RolePermissions", this->Mod_RolePermissions },
+                { "Mod_RoleRank", this->Mod_RoleRank },
+                { "SMAC_CheckStartWords", this->SMAC_CheckStartWords },
+                { "SMAC_StartWordsThreshold", this->SMAC_StartWordsThreshold },
+                { "SMAC_StartWords", this->SMAC_StartWords },
                 { "Destruct_IgnoreWhitelist", this->Destruct_IgnoreWhitelist },
                 { "Ban_IgnoreWhitelist", this->Ban_IgnoreWhitelist },
                 { "TimerAFK", this->TimerAFK },
@@ -876,7 +1135,7 @@ void Settings::Save() {
                 { "WarnReasons", this->WarnReasons },
                 { "LockedNames", this->LockedNames },
 
-                { "DisableMedbayScan", this->DisableMedbayScan },
+                // { "DisableMedbayScan", this->DisableMedbayScan },
 
                 { "CrewmateGhostColor_R", this->CrewmateGhostColor.x },
                 { "CrewmateGhostColor_G", this->CrewmateGhostColor.y },
@@ -934,6 +1193,10 @@ void Settings::Save() {
                 { "ViperColor_G", this->ViperColor.y },
                 { "ViperColor_B", this->ViperColor.z },
                 { "ViperColor_A", this->ViperColor.w },
+                { "JudgeColor_R", this->JudgeColor.x },
+                { "JudgeColor_G", this->JudgeColor.y },
+                { "JudgeColor_B", this->JudgeColor.z },
+                { "JudgeColor_A", this->JudgeColor.w },
                 { "HostColor_R", this->HostColor.x },
                 { "HostColor_G", this->HostColor.y },
                 { "HostColor_B", this->HostColor.z },
@@ -995,7 +1258,17 @@ void Settings::Save() {
                     return banList;
                 }() },
 
-			    { "PlayerHistory", [&]() {
+                { "LobbyHistory", [&]() {
+            nlohmann::ordered_json arr = nlohmann::ordered_json::array();
+            for (const auto& l : this->LobbyHistory) {
+                arr.push_back({
+                    { "Code",     l.Code },
+                    { "HostName", l.HostName }
+                });
+            }
+            return arr;
+        }() },
+                { "PlayerHistory", [&]() {
                     nlohmann::ordered_json arr = nlohmann::ordered_json::array();
                     for (const auto& p : this->PlayerHistory) {
                         arr.push_back({

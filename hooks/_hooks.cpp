@@ -24,7 +24,6 @@ bool HookFunction(PVOID* ppPointer, PVOID pDetour, const char* functionName) {
 }
 
 #define HOOKFUNC(n) if (!HookFunction(&(PVOID&)n, d ## n, #n)) return;
-#define OPTIONAL_HOOKFUNC(n) if (n && !HookFunction(&(PVOID&)n, d ## n, #n)) return;
 
 bool UnhookFunction(PVOID* ppPointer, PVOID pDetour, const char* functionName) {
 	if (const auto error = DetourDetach(ppPointer, pDetour); error != NO_ERROR) {
@@ -36,7 +35,6 @@ bool UnhookFunction(PVOID* ppPointer, PVOID pDetour, const char* functionName) {
 }
 
 #define UNHOOKFUNC(n) if (!UnhookFunction(&(PVOID&)n, d ## n, #n)) return;
-#define OPTIONAL_UNHOOKFUNC(n) if (n && !UnhookFunction(&(PVOID&)n, d ## n, #n)) return;
 
 void DetourInitilization() {
 	DetourTransactionBegin();
@@ -166,7 +164,8 @@ void DetourInitilization() {
 	HOOKFUNC(Debug_LogException);
 	HOOKFUNC(Debug_LogWarning);
 	HOOKFUNC(VersionShower_Start);
-	HOOKFUNC(EOSManager_StartInitialLoginFlow);
+	// HOOKFUNC(EOSManager_StartInitialLoginFlow);
+	HOOKFUNC(EOSManager_BeginLoginFlowWithDeviceID);
 	HOOKFUNC(EOSManager_LoginFromAccountTab);
 	HOOKFUNC(EOSManager_InitializePlatformInterface);
 	HOOKFUNC(EOSManager_IsFreechatAllowed);
@@ -230,7 +229,8 @@ void DetourInitilization() {
 	HOOKFUNC(MeetingHud_CheckForEndVoting);
 	HOOKFUNC(AccountManager_CanPlayOnline);
 	HOOKFUNC(LogicOptions_GetAnonymousVotes);
-	//HOOKFUNC(AssetReference_InstantiateAsync_1);
+	HOOKFUNC(LogicOptions_GetVisualTasks);
+	HOOKFUNC(AssetReference_InstantiateAsync_1);
 	HOOKFUNC(AprilFoolsMode_ShouldFlipSkeld);
 	HOOKFUNC(MatchMakerGameButton_SetGame);
 	HOOKFUNC(ModManager_LateUpdate);
@@ -239,7 +239,6 @@ void DetourInitilization() {
 	HOOKFUNC(Vent_TryMoveToVent);
 	HOOKFUNC(PlayerControl_get_CalculatedAlpha);
 	HOOKFUNC(PlayerControl_get_Visible);
-	HOOKFUNC(MeetingHud_CastVote);
 	HOOKFUNC(MultiplayerSettingsData_get_ChatMode);
 	//HOOKFUNC(VentilationSystem_Update);
 	HOOKFUNC(PlayerPhysics_RpcExitVent);
@@ -247,12 +246,6 @@ void DetourInitilization() {
 	HOOKFUNC(PlayerControl_OnDestroy);
 	HOOKFUNC(MapCountOverlay_OnEnable);
 	HOOKFUNC(MapCountOverlay_OnDisable);
-	OPTIONAL_HOOKFUNC(MapBehaviour_ShowNormalMap);
-	OPTIONAL_HOOKFUNC(MapBehaviour_ShowInfectedMap);
-	OPTIONAL_HOOKFUNC(MapBehaviour_ShowSabotageMap);
-	OPTIONAL_HOOKFUNC(MapBehaviour_Close);
-	OPTIONAL_HOOKFUNC(MapBehaviour_OnEnable);
-	OPTIONAL_HOOKFUNC(MapBehaviour_OnDisable);
 	HOOKFUNC(BanMenu_Select);
 	HOOKFUNC(IntroCutscene_ShowTeam);
 	HOOKFUNC(LogicOptionsHnS_GetCrewmateLeadTime);
@@ -270,6 +263,44 @@ void DetourInitilization() {
 	HOOKFUNC(SoundManager_PlaySound);
 	HOOKFUNC(GameStartManager_ReallyBegin);
 	HOOKFUNC(ViperDeadBody_FixedUpdate);
+	HOOKFUNC(PlayerControl_RpcSetNamePlate);
+	HOOKFUNC(RoleBehaviour_get_CommsSabotaged);
+	HOOKFUNC(VitalsMinigame_Update);
+	HOOKFUNC(EndGameManager_ShowButtons);
+	HOOKFUNC(ShhhBehaviour_PlayAnimation);
+	// HOOKFUNC(RoleBehaviour_get_NiceName);
+	HOOKFUNC(RoleBehaviour_get_Blurb);
+	HOOKFUNC(IntroCutscene_CoBegin);
+	HOOKFUNC(RoleBehaviour_AppendTaskHint);
+	HOOKFUNC(FriendsListButton_Update);
+	HOOKFUNC(ProgressTracker_FixedUpdate);
+	HOOKFUNC(HideAndSeekTimerBar_Update);
+	HOOKFUNC(LobbyInfoPane_Update);
+	HOOKFUNC(Mushroom_FixedUpdate);
+	HOOKFUNC(ShadowCollab_OnEnable);
+	HOOKFUNC(PassiveButton_ReceiveClickDown);
+	HOOKFUNC(PassiveButton_ReceiveRepeatDown);
+	HOOKFUNC(PassiveButton_ReceiveClickUp);
+	HOOKFUNC(PassiveButton_ReceiveMouseOver);
+	HOOKFUNC(Screen_SetResolution);
+	HOOKFUNC(ChatController_Toggle);
+	HOOKFUNC(MapBehaviour_FixedUpdate);
+	HOOKFUNC(RoomTracker_FixedUpdate);
+	HOOKFUNC(EngineerRole_FixedUpdate);
+	HOOKFUNC(ScientistRole_Update);
+	HOOKFUNC(TrackerRole_FixedUpdate);
+	HOOKFUNC(DetectiveRole_FixedUpdate);
+	HOOKFUNC(GuardianAngelRole_FixedUpdate);
+	HOOKFUNC(ShapeshifterRole_FixedUpdate);
+	HOOKFUNC(MeetingHud_CastVote);
+	HOOKFUNC(MatchInfoHudButton_Update);
+	HOOKFUNC(KillButton_DoClick);
+	HOOKFUNC(MatchInfoGuide_Update);
+	HOOKFUNC(PlayerIdentifierButton_Populate);
+	HOOKFUNC(GameManager_ReviveEveryoneFreeplay);
+	HOOKFUNC(PlayerControl_Die);
+	HOOKFUNC(PlayerVoteArea_SetCosmetics);
+	HOOKFUNC(PlayerControl_SetKillTimer);
 
 	if (!HookFunction(&(PVOID&)oPresent, dPresent, "D3D_PRESENT_FUNCTION")) return;
 
@@ -277,7 +308,7 @@ void DetourInitilization() {
 }
 
 void DetourUninitialization()
-{
+ {
 	DetourTransactionBegin();
 	DetourUpdateThread(GetCurrentThread());
 
@@ -350,7 +381,8 @@ void DetourUninitialization()
 	UNHOOKFUNC(Debug_LogException);
 	UNHOOKFUNC(Debug_LogWarning);
 	UNHOOKFUNC(VersionShower_Start);
-	UNHOOKFUNC(EOSManager_StartInitialLoginFlow);
+	// UNHOOKFUNC(EOSManager_StartInitialLoginFlow);
+	UNHOOKFUNC(EOSManager_BeginLoginFlowWithDeviceID);
 	UNHOOKFUNC(EOSManager_LoginFromAccountTab);
 	UNHOOKFUNC(EOSManager_InitializePlatformInterface);
 	UNHOOKFUNC(EOSManager_IsFreechatAllowed);
@@ -412,7 +444,8 @@ void DetourUninitialization()
 	UNHOOKFUNC(MeetingHud_CheckForEndVoting);
 	UNHOOKFUNC(AccountManager_CanPlayOnline);
 	UNHOOKFUNC(LogicOptions_GetAnonymousVotes);
-	//UNHOOKFUNC(AssetReference_InstantiateAsync_1);
+	UNHOOKFUNC(LogicOptions_GetVisualTasks);
+	UNHOOKFUNC(AssetReference_InstantiateAsync_1);
 	UNHOOKFUNC(AprilFoolsMode_ShouldFlipSkeld);
 	UNHOOKFUNC(MatchMakerGameButton_SetGame);
 	UNHOOKFUNC(ModManager_LateUpdate);
@@ -421,7 +454,6 @@ void DetourUninitialization()
 	UNHOOKFUNC(Vent_TryMoveToVent);
 	UNHOOKFUNC(PlayerControl_get_CalculatedAlpha);
 	UNHOOKFUNC(PlayerControl_get_Visible);
-	UNHOOKFUNC(MeetingHud_CastVote);
 	UNHOOKFUNC(MultiplayerSettingsData_get_ChatMode);
 	//UNHOOKFUNC(VentilationSystem_Update);
 	UNHOOKFUNC(PlayerPhysics_RpcExitVent);
@@ -429,12 +461,6 @@ void DetourUninitialization()
 	UNHOOKFUNC(PlayerControl_OnDestroy);
 	UNHOOKFUNC(MapCountOverlay_OnEnable);
 	UNHOOKFUNC(MapCountOverlay_OnDisable);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_ShowNormalMap);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_ShowInfectedMap);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_ShowSabotageMap);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_Close);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_OnEnable);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_OnDisable);
 	UNHOOKFUNC(BanMenu_Select);
 	UNHOOKFUNC(IntroCutscene_ShowTeam);
 	UNHOOKFUNC(LogicOptionsHnS_GetCrewmateLeadTime);
@@ -452,6 +478,41 @@ void DetourUninitialization()
 	UNHOOKFUNC(SoundManager_PlaySound);
 	UNHOOKFUNC(GameStartManager_ReallyBegin);
 	UNHOOKFUNC(ViperDeadBody_FixedUpdate);
+	UNHOOKFUNC(PlayerControl_RpcSetNamePlate);
+	UNHOOKFUNC(RoleBehaviour_get_CommsSabotaged);
+	UNHOOKFUNC(VitalsMinigame_Update);
+	UNHOOKFUNC(EndGameManager_ShowButtons);
+	UNHOOKFUNC(ShhhBehaviour_PlayAnimation);
+	// UNHOOKFUNC(RoleBehaviour_get_NiceName);
+	UNHOOKFUNC(RoleBehaviour_get_Blurb);
+	UNHOOKFUNC(IntroCutscene_CoBegin);
+	UNHOOKFUNC(RoleBehaviour_AppendTaskHint);
+	UNHOOKFUNC(FriendsListButton_Update);
+	UNHOOKFUNC(ProgressTracker_FixedUpdate);
+	UNHOOKFUNC(HideAndSeekTimerBar_Update);
+	UNHOOKFUNC(LobbyInfoPane_Update);
+	UNHOOKFUNC(Mushroom_FixedUpdate);
+	UNHOOKFUNC(ShadowCollab_OnEnable);
+	UNHOOKFUNC(PassiveButton_ReceiveClickDown);
+	UNHOOKFUNC(PassiveButton_ReceiveRepeatDown);
+	UNHOOKFUNC(PassiveButton_ReceiveClickUp);
+	UNHOOKFUNC(PassiveButton_ReceiveMouseOver);
+	UNHOOKFUNC(Screen_SetResolution);
+	UNHOOKFUNC(ChatController_Toggle);
+	UNHOOKFUNC(MapBehaviour_FixedUpdate);
+	UNHOOKFUNC(RoomTracker_FixedUpdate);
+	UNHOOKFUNC(EngineerRole_FixedUpdate);
+	UNHOOKFUNC(GuardianAngelRole_FixedUpdate);
+	UNHOOKFUNC(ShapeshifterRole_FixedUpdate);
+	UNHOOKFUNC(MeetingHud_CastVote);
+	UNHOOKFUNC(MatchInfoHudButton_Update);
+	UNHOOKFUNC(KillButton_DoClick);
+	UNHOOKFUNC(MatchInfoGuide_Update);
+	UNHOOKFUNC(PlayerIdentifierButton_Populate);
+	UNHOOKFUNC(GameManager_ReviveEveryoneFreeplay);
+	UNHOOKFUNC(PlayerControl_Die);
+	UNHOOKFUNC(PlayerVoteArea_SetCosmetics);
+	UNHOOKFUNC(PlayerControl_SetKillTimer);
 
 	if (DetourDetach(&(PVOID&)oPresent, dPresent) != 0) return;
 

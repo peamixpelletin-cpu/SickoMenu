@@ -6,83 +6,9 @@
 #include "replay.hpp"
 #include "profiler.h"
 #include "game.h"
-#include <cstring>
-
-
-static bool IsHardPinnedDoorRoom(SystemTypes__Enum room) {
-    return !State.PanicMode &&
-        std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), room) != State.pinnedDoors.end();
-}
-
-static bool IsPolusOrAirship() {
-    return State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb;
-}
-
-static bool DoorClassMatches(Il2CppClass* klass, const char* name) {
-    for (auto k = klass; k != nullptr; k = k->parent) {
-        if (k->name != nullptr && std::strcmp(k->name, name) == 0)
-            return true;
-    }
-    return false;
-}
-
-static OpenableDoor* FindDoorFromDoorsSystemAmount(ShipStatus* shipStatus, uint8_t amount) {
-    if (shipStatus == nullptr)
-        return nullptr;
-
-    const uint8_t requestedDoorId = static_cast<uint8_t>(amount & ~64);
-    for (auto door : il2cpp::Array(shipStatus->fields.AllDoors)) {
-        if (door == nullptr)
-            continue;
-
-        const uint8_t doorId = static_cast<uint8_t>(door->fields.Id & ~64);
-        if (doorId == requestedDoorId)
-            return door;
-    }
-
-    return nullptr;
-}
-
-static void ForceDoorClosedLocally(OpenableDoor* door) {
-    if (door == nullptr || door->klass == nullptr)
-        return;
-
-    if (DoorClassMatches(door->klass, "PlainDoor")) {
-        app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), false, nullptr);
-    }
-    else if (DoorClassMatches(door->klass, "MushroomWallDoor")) {
-        app::MushroomWallDoor_SetDoorway(reinterpret_cast<MushroomWallDoor*>(door), false, nullptr);
-    }
-}
-
-static bool ShouldSuppressHardPinnedDoorOpen(
-    ShipStatus* shipStatus,
-    SystemTypes__Enum systemType,
-    uint8_t amount,
-    OpenableDoor** doorOut,
-    SystemTypes__Enum* roomOut) {
-
-    // In Polus/Airship door systems, bit 0x40 is the existing open marker used
-    // elsewhere in this mod (door->Id | 64 opens, door->Id & ~64 closes).
-    if (State.PanicMode || systemType != SystemTypes__Enum::Doors || State.pinnedDoors.empty() || !IsPolusOrAirship())
-        return false;
-
-    if ((amount & 64) == 0)
-        return false; // Already a close/no-open update; let vanilla handle it.
-
-    OpenableDoor* door = FindDoorFromDoorsSystemAmount(shipStatus, amount);
-    if (door == nullptr || !IsHardPinnedDoorRoom(door->fields.Room))
-        return false;
-
-    if (doorOut != nullptr)
-        *doorOut = door;
-    if (roomOut != nullptr)
-        *roomOut = door->fields.Room;
-    return true;
-}
 
 float dShipStatus_CalculateLightRadius(ShipStatus* __this, NetworkedPlayerInfo* player, MethodInfo* method) {
-    if (State.ShowHookLogs) LOG_DEBUG("Hook dShipStatus_CalculateLightRadius executed");
+    if (State.ShowHookLogs) Log.HookDebug("Hook dShipStatus_CalculateLightRadius executed", false);
     if (IsHost() && State.TaskSpeedrun && State.GameLoaded && State.mapType != Settings::MapType::Airship)
         State.SpeedrunTimer += Time_get_deltaTime(NULL);
     CosmeticsCache_PopulateFromPlayers((CosmeticsCache*)__this->fields._CosmeticsCache_k__BackingField, NULL);
@@ -108,7 +34,7 @@ float dShipStatus_CalculateLightRadius(ShipStatus* __this, NetworkedPlayerInfo* 
 }
 
 void dShipStatus_OnEnable(ShipStatus* __this, MethodInfo* method) {
-    if (State.ShowHookLogs) LOG_DEBUG("Hook dShipStatus_OnEnable executed");
+    if (State.ShowHookLogs) Log.HookDebug("Hook dShipStatus_OnEnable executed", false);
     try {
         State.BlinkPlayersTab = false;
 
@@ -137,6 +63,18 @@ void dShipStatus_OnEnable(ShipStatus* __this, MethodInfo* method) {
             if (!State.SafeMode) State.rpcQueue.push(new RpcSetRole(*Game::pLocalPlayer, (RoleTypes__Enum)State.FakeRole));
         }
 
+        auto transform = Component_get_transform((Component_1*)__this, NULL);
+        auto localScale = transform == NULL ? Vector3(0.f, 0.f, 0.f) : Transform_get_localScale(transform, NULL);
+
+        if (State.mapType == Settings::MapType::Ship) {
+            State.FlipSkeld = localScale.x < 0;
+            // By default, the x coordinate of the local scale of the Skeld is 1.2,
+            // whereas it is -1.2 for Dleks.
+            // This allows us to flip stuff such as the radar,
+            // even when we aren't hosting and the host plays with Dleks.
+        }
+        else State.FlipSkeld = false;
+
         //if (!State.mapDoors.empty() && Constants_1_ShouldFlipSkeld(NULL))
             //State.FlipSkeld = true; fix later
 
@@ -164,19 +102,27 @@ void dShipStatus_OnEnable(ShipStatus* __this, MethodInfo* method) {
     ShipStatus_OnEnable(__this, method);
 }
 
+static bool IsSabotageTriggerAmount(SystemTypes__Enum systemType, int32_t amount) {
+    switch (systemType) {
+    case SystemTypes__Enum::Electrical: return amount >= 5;
+    case SystemTypes__Enum::MushroomMixupSabotage: return amount >= 1;
+    default: return amount >= 128;
+    }
+}
+
 void dShipStatus_RpcUpdateSystem(ShipStatus* __this, SystemTypes__Enum systemType, int32_t amount, MethodInfo* method) {
-    if (State.ShowHookLogs) LOG_DEBUG("Hook dShipStatus_RpcUpdateSystem executed");
+    if (State.ShowHookLogs) Log.HookDebug("Hook dShipStatus_RpcUpdateSystem executed", false);
 
     ShipStatus_RpcUpdateSystem(__this, systemType, amount, method);
 }
 
 void dShipStatus_RpcCloseDoorsOfType(ShipStatus* __this, SystemTypes__Enum type, MethodInfo* method) {
-    if (State.ShowHookLogs) LOG_DEBUG("Hook dShipStatus_RpcCloseDoorsOfType executed");
+    if (State.ShowHookLogs) Log.HookDebug("Hook dShipStatus_RpcCloseDoorsOfType executed", false);
     ShipStatus_RpcCloseDoorsOfType(__this, type, method);
 }
 
 void dShipStatus_HandleRpc(ShipStatus* __this, uint8_t callId, MessageReader* reader, MethodInfo* method) {
-    if (State.ShowHookLogs) LOG_DEBUG("Hook dShipStatus_HandleRpc executed");
+    if (State.ShowHookLogs) Log.HookDebug("Hook dShipStatus_HandleRpc executed", false);
     if (callId != 27 && callId != 35) return;
     int32_t pos = reader->fields._position, head = reader->fields.readHead;
     auto systemType = (SystemTypes__Enum)MessageReader_ReadByte(reader, NULL);
@@ -190,6 +136,11 @@ void dShipStatus_HandleRpc(ShipStatus* __this, uint8_t callId, MessageReader* re
         (callId == 35 && systemType == SystemTypes__Enum::MedBay))
         return ShipStatus_HandleRpc(__this, callId, reader, method);
     if (!State.PanicMode && State.DisableSabotages) return;
+    if (!State.PanicMode && callId == 27 &&
+        State.DisabledSabotageTypes.count((int)SystemTypes__Enum::Doors))
+        return;
+    if (!State.PanicMode && State.DisabledSabotageTypes.count((int)systemType))
+        return;
     ShipStatus_HandleRpc(__this, callId, reader, method);
 }
 
@@ -241,25 +192,8 @@ bool DetectCheatSabotage(SystemTypes__Enum systemType, PlayerControl* player, ui
 }
 
 void dShipStatus_UpdateSystem(ShipStatus* __this, SystemTypes__Enum systemType, PlayerControl* player, uint8_t amount, MethodInfo* method) {
-    if (State.ShowHookLogs) LOG_DEBUG("Hook dShipStatus_UpdateSystem executed");
+    if (State.ShowHookLogs) Log.HookDebug("Hook dShipStatus_UpdateSystem executed", false);
     LOG_DEBUG(std::format("SystemType {} updated with amount {}", (std::string)TranslateSystemTypes(systemType), amount).c_str());
-
-    OpenableDoor* hardPinnedDoor = nullptr;
-    SystemTypes__Enum hardPinnedRoom = SystemTypes__Enum::Hallway;
-    if (ShouldSuppressHardPinnedDoorOpen(__this, systemType, amount, &hardPinnedDoor, &hardPinnedRoom)) {
-        // Critical fix: reject the open before vanilla applies it. The old path
-        // opened first and only sent a close afterward, so remote clients could
-        // render a short open window and squeeze through.
-        ForceDoorClosedLocally(hardPinnedDoor);
-
-        // If this client is host, also broadcast a close immediately so clients
-        // that do not have this receiver-side guard collapse back to closed as
-        // soon as the host sees the bad open attempt.
-        if (IsHost())
-            app::ShipStatus_RpcCloseDoorsOfType(__this, hardPinnedRoom, nullptr);
-        return;
-    }
-
     if (systemType == SystemTypes__Enum::Ventilation ||
         systemType == SystemTypes__Enum::Security ||
         systemType == SystemTypes__Enum::Decontamination ||
@@ -268,21 +202,41 @@ void dShipStatus_UpdateSystem(ShipStatus* __this, SystemTypes__Enum systemType, 
         systemType == SystemTypes__Enum::MedBay)
         return ShipStatus_UpdateSystem(__this, systemType, player, amount, method);
     if (!State.PanicMode && State.DisableSabotages) return;
+
+    if (!State.PanicMode && IsHost() && IsSabotageTriggerAmount(systemType, amount)) {
+        if (State.DisabledSabotageTypes.count((int)systemType)) {
+            RepairSabotage(player);
+            return;
+        }
+        if (systemType == SystemTypes__Enum::Doors &&
+            State.DisabledSabotageTypes.count((int)SystemTypes__Enum::Doors))
+            return;
+    }
+    if (player != nullptr && systemType != SystemTypes__Enum::Electrical) {
+        auto evtPlayer = GetEventPlayerControl(player);
+        if (evtPlayer.has_value()) {
+            bool isSabotage = amount >= 128;
+            SABOTAGE_ACTIONS action = isSabotage ? SABOTAGE_ACTIONS::SABOTAGE_CALL : SABOTAGE_ACTIONS::SABOTAGE_FIX;
+            synchronized(Replay::replayEventMutex) {
+                State.liveConsoleEvents.emplace_back(std::make_unique<SabotageEvent>(evtPlayer.value(), systemType, action));
+            }
+        }
+    }
+
     ShipStatus_UpdateSystem(__this, systemType, player, amount, method);
 }
 
 void dShipStatus_AddTasksFromList(ShipStatus* __this, int32_t* start, int32_t count, void* tasks, void* usedTaskTypes, List_1_NormalPlayerTask_* unusedTasks, MethodInfo* method) {
-    if (State.DisableMedbayScan) {
-        il2cpp::List<List_1_NormalPlayerTask_> tasks = unusedTasks;
-        size_t max = tasks.size();
-        size_t medScanIndex = max;
-        for (size_t i = 0; i < max; i++) {
-            if (tasks[i]->fields._.TaskType == TaskTypes__Enum::SubmitScan) {
-                medScanIndex = i;
-            }
+    if (State.DisableMedbayScan || !State.DisabledTaskTypes.empty()) {
+        il2cpp::List<List_1_NormalPlayerTask_> taskList = unusedTasks;
+        for (int i = (int)taskList.size() - 1; i >= 0; i--) {
+            if ((int)taskList.size() <= count) break; 
+            auto taskType = taskList[i]->fields._.TaskType;
+            bool remove = (State.DisableMedbayScan && taskType == TaskTypes__Enum::SubmitScan)
+                || State.DisabledTaskTypes.count((int)taskType);
+            if (remove) taskList.erase(i);
         }
-        if (medScanIndex != max) tasks.erase(medScanIndex);
-        unusedTasks = tasks.get();
+        unusedTasks = taskList.get();
     }
     ShipStatus_AddTasksFromList(__this, start, count, tasks, usedTaskTypes, unusedTasks, method);
 }

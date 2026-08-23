@@ -14,6 +14,7 @@ static inline ImVec2& operator+=(ImVec2& lhs, const float scalar) { lhs.x += sca
 static inline ImVec2& operator-=(ImVec2& lhs, const float scalar) { lhs.x -= scalar; lhs.y -= scalar; return lhs; }
 
 bool CustomListBoxInt(const char* label, int* value, const std::vector<const char*> list, float width = 225.f, ImVec4 col = ImVec4(0, 0, 0, 0), ImGuiComboFlags flags = ImGuiComboFlags_None, const char* visualLabel = "");
+bool CustomListBoxIntColored(const char* label, int* value, const std::vector<const char*> list, float width = 225.f, ImVec4 col = ImVec4(0, 0, 0, 0), ImGuiComboFlags flags = ImGuiComboFlags_None, const char* visualLabel = "", const RoleColor* itemColors = nullptr, size_t itemColorsCount = 0);
 bool CustomListBoxIntMultiple(const char* label, std::vector<std::pair<const char*, bool>>* list, float width, bool resetButton = true, ImGuiComboFlags flags = ImGuiComboFlags_None);
 bool CustomListBoxPlayerSelectionMultiple(const char* label, std::array<std::pair<PlayerSelection, bool>, Game::MAX_PLAYERS>* list, float width, bool resetButton = true, ImGuiComboFlags flags = ImGuiComboFlags_None);
 bool SteppedSliderFloat(const char* label, float* v, float v_min, float v_max, float v_step, const char* format, ImGuiSliderFlags flags);
@@ -31,4 +32,4 @@ bool TabGroup(const char* label, bool highlight = false);
 bool ColoredButton(ImVec4 col, const char* label);
 void BoldText(const char* text, ImVec4 col = ImVec4(0.f, 0.f, 0.f, 0.f));
 bool SliderIntV2(const char* label, int* v, int v_min, int v_max, const char* format, ImGuiSliderFlags flags);
-bool AnimatedButton(const char* label, const ImVec2& size = ImVec2(0, 0));
+bool AnimatedButton(const char* label, bool isAffectedBySearch = true, const ImVec2& size = ImVec2(0, 0));

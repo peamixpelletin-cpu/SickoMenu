@@ -16,6 +16,7 @@ public:
 	void Debug(std::string_view message);
 	void Error(std::string_view message);
 	void Info(std::string_view message);
+	void HookDebug(std::string_view message, bool write = false);
 private:
 	std::filesystem::path filePath;
 	std::string currentVerbosity;

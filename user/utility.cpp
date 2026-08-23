@@ -52,6 +52,7 @@ RoleRates::RoleRates(const class GameOptions& gameOptions, int playerAmount) {
     GET_ROLE_RATE(Tracker);
     GET_ROLE_RATE(Detective);
     GET_ROLE_RATE(Noisemaker);
+    GET_ROLE_RATE(Judge);
     GET_ROLE_RATE(Shapeshifter);
     GET_ROLE_RATE(Phantom);
     GET_ROLE_RATE(Viper);
@@ -79,6 +80,8 @@ int RoleRates::GetRoleCount(RoleTypes__Enum role) {
         return this->NoisemakerCount;
     case RoleTypes__Enum::Detective:
         return this->DetectiveCount;
+    case RoleTypes__Enum::Judge:
+        return this->JudgeCount;
     case RoleTypes__Enum::GuardianAngel:
         return this->GuardianAngelCount;
     case RoleTypes__Enum::Crewmate:
@@ -151,6 +154,12 @@ void RoleRates::SubtractRole(RoleTypes__Enum role) {
         if (this->DetectiveCount < 1)
             return;
         this->DetectiveCount--;
+    }
+    else if (role == RoleTypes__Enum::Judge)
+    {
+        if (this->JudgeCount < 1)
+            return;
+        this->JudgeCount--;
     }
     /*else if (role == RoleTypes__Enum::GuardianAngel)
     {
@@ -697,6 +706,28 @@ Color32 GetPlayerColor(Game::ColorId colorId) {
     return colorArray[colorId];
 }
 
+Color32 GetPlayerTextColor(Game::ColorId colorId, bool isOutline) {
+    il2cpp::Array colorArray = isOutline ?
+        app::Palette__TypeInfo->static_fields->TextOutlineColors :
+        app::Palette__TypeInfo->static_fields->TextColors;
+    if ((colorId < 0 || colorId > 17) || (size_t)colorId >= colorArray.size()) {
+        // oops: game bug
+        Color32 fortegreen = Color32();
+        fortegreen.r = (uint8_t)38;
+        fortegreen.g = (uint8_t)166;
+        fortegreen.b = (uint8_t)98;
+        fortegreen.a = (uint8_t)255;
+        if (isOutline) {
+            fortegreen.r /= 2;
+            fortegreen.g /= 2;
+            fortegreen.b /= 2;
+            fortegreen.a /= 2;
+        }
+        return fortegreen;
+    }
+    return colorArray[colorId];
+}
+
 std::filesystem::path getModulePath(HMODULE hModule) {
     TCHAR buff[MAX_PATH];
     GetModuleFileName(hModule, buff, MAX_PATH);
@@ -927,7 +958,7 @@ Game::ColorId GetRandomColorId()
     Game::ColorId colorId;
     il2cpp::Array PlayerColors = app::Palette__TypeInfo->static_fields->PlayerColors;
     assert(PlayerColors.size() > 0);
-    if (IsInGame() || IsInLobby())
+    if ((IsInGame() || IsInLobby()) && !IsHost())
     {
         auto players = GetAllPlayerControl();
         std::vector<Game::ColorId> availableColors = { };
@@ -1268,16 +1299,108 @@ NetworkedPlayerInfo_PlayerOutfit* GetPlayerOutfit(NetworkedPlayerInfo* player, b
 }
 
 bool PlayerIsImpostor(NetworkedPlayerInfo* player) {
-
     if (player->fields.Role == nullptr) return false;
 
-    RoleBehaviour* role = player->fields.Role;
-    return role->fields.TeamType == RoleTeamTypes__Enum::Impostor;
+    // equating roles because TeamType wasn't giving the correct result
+    auto role = player->fields.RoleType;
+    return role == RoleTypes__Enum::ImpostorGhost || role == RoleTypes__Enum::Impostor || role == RoleTypes__Enum::Shapeshifter ||
+        role == RoleTypes__Enum::Phantom || role == RoleTypes__Enum::Viper;
+}
+
+bool FriendCodeHasPermission(const std::string& friendCode, const std::string& commandKey) {
+    if (friendCode.empty()) return false;
+    for (size_t i = 0; i < State.Mod_RoleNames.size(); i++) {
+        if (i >= State.Mod_RoleMembers.size() || i >= State.Mod_RolePermissions.size()) continue;
+        auto& members = State.Mod_RoleMembers[i];
+        if (std::find(members.begin(), members.end(), friendCode) == members.end()) continue;
+        auto it = State.Mod_RolePermissions[i].find(commandKey);
+        if (it != State.Mod_RolePermissions[i].end() && it->second) return true;
+    }
+    return false;
+}
+
+bool PlayerHasPermission(PlayerControl* pc, const std::string& commandKey) {
+    if (pc == *Game::pLocalPlayer) return true; // no permission check applies to yourself
+    if (pc == NULL) return false;
+    auto pd = GetPlayerData(pc);
+    if (pd == NULL || pd->fields.FriendCode == NULL) return false;
+    return FriendCodeHasPermission(convert_from_string(pd->fields.FriendCode), commandKey);
+}
+
+int FindColorIdByName(const std::string& lowerName) {
+    static const std::vector<std::string> COLOR_NAMES = { "red", "blue", "green", "pink", "orange", "yellow", "black", "white", "purple", "brown", "cyan", "lime", "maroon", "rose", "banana", "gray", "tan", "coral" };
+    for (size_t i = 0; i < COLOR_NAMES.size(); i++) if (COLOR_NAMES[i] == lowerName) return (int)i;
+    return -1;
+}
+
+PlayerControl* ResolveTargetByName(const std::string& lowerName) {
+    PlayerControl* target = NULL;
+    int matches = 0;
+    for (auto p : GetAllPlayerControl()) {
+        auto pd = GetPlayerData(p);
+        if (pd == NULL) continue;
+        std::string pname = strToLower(convert_from_string(NetworkedPlayerInfo_get_PlayerName(pd, nullptr)));
+        if (pname == lowerName) { target = p; matches++; }
+    }
+    return matches == 1 ? target : NULL;
+}
+
+PlayerControl* ResolveTargetByColor(int colorId) {
+    if (colorId == -1) return NULL;
+    PlayerControl* target = NULL;
+    int matches = 0;
+    for (auto p : GetAllPlayerControl()) {
+        auto pd = GetPlayerData(p);
+        if (pd == NULL) continue;
+        auto outfit = GetPlayerOutfit(pd);
+        if (outfit != NULL && (int)outfit->fields.ColorId == colorId) { target = p; matches++; }
+    }
+    return matches == 1 ? target : NULL;
+}
+
+std::vector<int> GetFriendCodeRoleIndices(const std::string& friendCode) {
+    std::vector<int> result;
+    if (friendCode.empty()) return result;
+    for (size_t i = 0; i < State.Mod_RoleMembers.size(); i++) {
+        auto& members = State.Mod_RoleMembers[i];
+        if (std::find(members.begin(), members.end(), friendCode) != members.end()) result.push_back((int)i);
+    }
+    return result;
+}
+
+void SetFriendCodeInRole(const std::string& friendCode, int roleIndex, bool member) {
+    if (friendCode.empty() || roleIndex < 0 || roleIndex >= (int)State.Mod_RoleMembers.size()) return;
+    auto& members = State.Mod_RoleMembers[roleIndex];
+    bool alreadyMember = std::find(members.begin(), members.end(), friendCode) != members.end();
+    if (member && !alreadyMember) members.push_back(friendCode);
+    else if (!member && alreadyMember) members.erase(std::remove(members.begin(), members.end(), friendCode), members.end());
+    State.Save();
+}
+
+int GetFriendCodeMaxRank(const std::string& friendCode) {
+    int maxRank = -1; //-1 = holds no roles at all, always outranked by any real role
+    if (friendCode.empty()) return maxRank;
+    for (size_t i = 0; i < State.Mod_RoleNames.size(); i++) {
+        if (i >= State.Mod_RoleMembers.size() || i >= State.Mod_RoleRank.size()) continue;
+        auto& members = State.Mod_RoleMembers[i];
+        if (std::find(members.begin(), members.end(), friendCode) == members.end()) continue;
+        if (State.Mod_RoleRank[i] > maxRank) maxRank = State.Mod_RoleRank[i];
+    }
+    return maxRank;
+}
+
+int GetPlayerMaxRank(PlayerControl* pc) {
+    if (pc == NULL) return -1;
+    auto pd = GetPlayerData(pc);
+    if (pd == NULL || pd->fields.FriendCode == NULL) return -1;
+    return GetFriendCodeMaxRank(convert_from_string(pd->fields.FriendCode));
 }
 
 Color GetColorFromImVec4(ImVec4 vec) {
     return Color(vec.x, vec.y, vec.z, vec.w);
 }
+
+// for some reason, the tracker's role ID is 55050 instead of 10
 
 Color GetRoleColor(RoleBehaviour* roleBehaviour, bool gui) {
     if (roleBehaviour == nullptr)
@@ -1321,8 +1444,8 @@ Color GetRoleColor(RoleBehaviour* roleBehaviour, bool gui) {
         c = GetColorFromImVec4(State.NoisemakerColor);
         break;
     }
-    case (RoleTypes__Enum)10:
-    case RoleTypes__Enum::Tracker: {
+    case RoleTypes__Enum::Tracker:
+    case (RoleTypes__Enum)55050: {
         c = GetColorFromImVec4(State.TrackerColor);
         break;
     }
@@ -1338,48 +1461,66 @@ Color GetRoleColor(RoleBehaviour* roleBehaviour, bool gui) {
         c = GetColorFromImVec4(State.ViperColor);
         break;
     }
+    case RoleTypes__Enum::Judge: {
+        c = GetColorFromImVec4(State.JudgeColor);
+        break;
+    }
     default: {
-        c = GetColorFromImVec4(State.CrewmateColor);;
+        c = GetColorFromImVec4(State.CrewmateColor);
         break;
     }
     }
     return c;
 }
 
-std::string GetRoleName(RoleBehaviour* roleBehaviour, bool abbreviated /* = false */)
+std::string GetRoleName(RoleBehaviour* roleBehaviour, bool abbreviated /* = false */, bool localized /* = false */)
 {
     if (roleBehaviour == nullptr) return (abbreviated ? "Unk" : "Unknown");
+
+    const uint16_t trackerRoleId = 55050;
+
+    if ((roleBehaviour->fields.Role == RoleTypes__Enum::Tracker || roleBehaviour->fields.Role == (RoleTypes__Enum)trackerRoleId) &&
+        roleBehaviour->fields.StringName != (StringNames__Enum)1681) {
+        roleBehaviour->fields.StringName = (StringNames__Enum)1681;
+    }
+
+    std::string fullRoleName = convert_from_string(app::RoleBehaviour_get_NiceName(roleBehaviour, NULL));
+
+    // crewmate and impostor ghosts don't have default role names in the game
 
     switch (roleBehaviour->fields.Role)
     {
     case RoleTypes__Enum::Engineer:
-        return (abbreviated ? "Eng" : "Engineer");
+        return (abbreviated ? "Eng" : (localized ? fullRoleName : "Engineer"));
     case RoleTypes__Enum::GuardianAngel:
-        return (abbreviated ? "GA" : "Guardian Angel");
+        return (abbreviated ? "GA" : (localized ? fullRoleName : "Guardian Angel"));
     case RoleTypes__Enum::Impostor:
-        return (abbreviated ? "Imp" : "Impostor");
+        return (abbreviated ? "Imp" : (localized ? fullRoleName : "Impostor"));
     case RoleTypes__Enum::Scientist:
-        return (abbreviated ? "Sci" : "Scientist");
+        return (abbreviated ? "Sci" : (localized ? fullRoleName : "Scientist"));
     case RoleTypes__Enum::Shapeshifter:
-        return (abbreviated ? "SS" : "Shapeshifter");
+        return (abbreviated ? "SS" : (localized ? fullRoleName : "Shapeshifter"));
     case RoleTypes__Enum::Crewmate:
-        return (abbreviated ? "Crew" : "Crewmate");
+        return (abbreviated ? "Crew" : (localized ? fullRoleName : "Crewmate"));
     case RoleTypes__Enum::CrewmateGhost:
         return (abbreviated ? "CG" : "Crewmate Ghost");
     case RoleTypes__Enum::ImpostorGhost:
         return (abbreviated ? "IG" : "Impostor Ghost");
     case RoleTypes__Enum::Noisemaker:
-        return (abbreviated ? "NM" : "Noisemaker");
-    case (RoleTypes__Enum)10:
+        return (abbreviated ? "NM" : (localized ? fullRoleName : "Noisemaker"));
     case RoleTypes__Enum::Tracker:
-        return (abbreviated ? "Tra" : "Tracker");
+    case (RoleTypes__Enum)trackerRoleId:
+        return (abbreviated ? "Tra" : (localized ? fullRoleName : "Tracker"));
     case RoleTypes__Enum::Phantom:
-        return (abbreviated ? "Ph" : "Phantom");
+        return (abbreviated ? "Ph" : (localized ? fullRoleName : "Phantom"));
     case RoleTypes__Enum::Detective:
-        return (abbreviated ? "Det" : "Detective");
+        return (abbreviated ? "Det" : (localized ? fullRoleName : "Detective"));
     case RoleTypes__Enum::Viper:
-        return (abbreviated ? "Vip" : "Viper");
+        return (abbreviated ? "Vip" : (localized ? fullRoleName : "Viper"));
+    case RoleTypes__Enum::Judge:
+        return (abbreviated ? "Jdg" : (localized ? fullRoleName : "Judge"));
     default:
+        // LOG_DEBUG(std::format("{}", (int)roleBehaviour->fields.Role));
         return (abbreviated ? "Unk" : "Unknown");
     }
 }
@@ -1413,6 +1554,9 @@ RoleTypes__Enum GetRoleTypesEnum(RoleType role)
     else if (role == RoleType::Detective) {
         return RoleTypes__Enum::Detective;
     }
+    else if (role == RoleType::Judge) {
+        return RoleTypes__Enum::Judge;
+    }
     return RoleTypes__Enum::Crewmate;
 }
 
@@ -1429,8 +1573,6 @@ float GetDistanceBetweenPoints_ImGui(const ImVec2& p1, const ImVec2& p2)
 }
 
 void ShowHudNotification(std::string text) {
-    return;
-    std::string notificationText = "</size><#fb0>[<#ff006c>SickoMenu</color>]</color> " + text + "<size=0>";
     if (IsInGame() || IsInLobby())
         NotificationPopper_AddDisconnectMessage((NotificationPopper*)(Game::HudManager.GetInstance()->fields.Notifier), convert_to_string(text), NULL);
 }
@@ -1483,7 +1625,7 @@ void DoPolylineSimplification(std::vector<ImVec2>& inPoints, std::vector<std::ch
 
 float getMapXOffsetSkeld(float x)
 {
-    return (State.FlipSkeld && GameOptions().GetByte(app::ByteOptionNames__Enum::MapId) == 3) ? x - 50.0f : x;
+    return State.FlipSkeld ? x - 50.0f : x;
 }
 
 bool Object_1_IsNotNull(app::Object_1* obj)
@@ -1773,6 +1915,13 @@ void SMAC_OnCheatDetected(PlayerControl* pCtrl, std::string reason) {
     if (pCtrl == *Game::pLocalPlayer || (!IsInLobby() && !IsInMultiplayerGame())) return; // Avoid detecting yourself and practice mode dummies
     if (reason == "Bad Sabotage" && !IsHost()) return; // Without host, we cannot detect who sent UpdateSystem rpc properly
 
+    static std::unordered_map<std::string, std::chrono::steady_clock::time_point> smacLastFlagTime;
+    std::string smacFlagKey = std::to_string(pCtrl->fields.PlayerId) + "|" + reason;
+    auto smacNow = std::chrono::steady_clock::now();
+    auto smacFlagIt = smacLastFlagTime.find(smacFlagKey);
+    if (smacFlagIt != smacLastFlagTime.end() && std::chrono::duration<float>(smacNow - smacFlagIt->second).count() < 3.0f) return; // Don't re-flag the same player for the same reason more than once every 3s
+    smacLastFlagTime[smacFlagKey] = smacNow;
+
     auto pData = GetPlayerData(pCtrl);
     std::string name = RemoveHtmlTags(convert_from_string(GetPlayerOutfit(GetPlayerData(pCtrl))->fields.PlayerName));
     if (name == "") name = convert_from_string(InnerNetClient_GetClientFromCharacter((InnerNetClient*)(*Game::pAmongUsClient), pCtrl, NULL)->fields.PlayerName);
@@ -1849,12 +1998,10 @@ void SMAC_OnCheatDetected(PlayerControl* pCtrl, std::string reason) {
     }
 }
 
-static std::string strToLower(std::string str) {
-    std::string new_str = "";
-    for (auto i : str) {
-        new_str += char(std::tolower(i));
-    }
-    return new_str;
+std::string strToLower(std::string str) {
+    std::string lowerStr = str;
+    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
+    return lowerStr;
 }
 
 bool IsRandomAUName(const std::string& name)
@@ -2197,6 +2344,140 @@ bool IsDater(std::string username, int playerCount) {
     return false;
 }
 
+void SendKillImmuneToggle(bool enabled) {
+    // original code: https://github.com/MrDiamond64/Hydra/blob/main/src/features/Immortality.cs
+    // if the server thinks we're in a vent, all CheckMurder RPCs fail
+    // this doesn't prevent direct MurderPlayer RPCs though,
+    // which are sent by default as host using SickoMenu
+    // we use a custom vent id that isn't on any map
+    // (67 in this case, 50 is used on Hydra) for this exploit
+
+    if (!IsInGame() || *Game::pShipStatus == NULL) return;
+    if (*Game::pLocalPlayer == NULL || (*Game::pLocalPlayer)->fields.MyPhysics == NULL) return;
+
+    State.rpcQueue.push(new SendKillImmunity(enabled, 67));
+}
+
+void SendBootVentNonHost(PlayerControl* player, int ventId, int targetNetId) {
+    // original code: https://github.com/MrDiamond64/Hydra/blob/main/src/Teleporter.cs#L172
+
+    if (!IsInGame() || (*Game::pShipStatus) == NULL) return;
+    if (player == NULL || (player)->fields.MyPhysics == NULL) return;
+
+    uint8_t gameDataTag = 5, gameDataToTag = 6, rpcFlag = 2;
+
+    if (targetNetId == -2) {
+        Game::PlayerId playerId = player->fields.PlayerId;
+
+        if (State.ventTpSeqIds.find(playerId) == State.ventTpSeqIds.end())
+            State.ventTpSeqIds[playerId] = 6767;
+
+        auto enterWriter = MessageWriter_Get(SendOption__Enum::Reliable, NULL);
+        MessageWriter_WriteUShort(enterWriter, ++State.ventTpSeqIds[playerId], NULL);
+        MessageWriter_WriteByte(enterWriter, (uint8_t)VentilationSystem_Operation__Enum::Enter, NULL);
+        MessageWriter_WriteByte(enterWriter, (uint8_t)ventId, NULL);
+
+        auto bootWriter = MessageWriter_Get(SendOption__Enum::Reliable, NULL);
+        MessageWriter_WriteUShort(bootWriter, ++State.ventTpSeqIds[playerId], NULL);
+        MessageWriter_WriteByte(bootWriter, (uint8_t)VentilationSystem_Operation__Enum::BootImpostors, NULL);
+        MessageWriter_WriteByte(bootWriter, (uint8_t)ventId, NULL);
+
+        auto mainWriter = MessageWriter_Get(SendOption__Enum::Reliable, NULL);
+        MessageWriter_StartMessage(mainWriter, gameDataToTag, NULL);
+        MessageWriter_WriteInt32(mainWriter, (*Game::pAmongUsClient)->fields._.GameId, NULL);
+        MessageWriter_WritePacked(mainWriter,
+            targetNetId == -2 ? ((InnerNetClient*)(*Game::pAmongUsClient))->fields.HostId : targetNetId,
+            NULL);
+
+        for (int i = 0; i < 2; ++i) {
+            MessageWriter_StartMessage(mainWriter, rpcFlag, NULL);
+            MessageWriter_WritePacked(mainWriter, (*Game::pShipStatus)->fields._.NetId, NULL);
+            MessageWriter_WriteByte(mainWriter, (uint8_t)RpcCalls__Enum::UpdateSystem, NULL);
+            MessageWriter_WriteByte(mainWriter, (uint8_t)SystemTypes__Enum::Ventilation, NULL);
+            MessageExtensions_WriteNetObject(mainWriter, (InnerNetObject*)player, NULL);
+            MessageWriter_WriteMessageWriter(mainWriter, i == 0 ? enterWriter : bootWriter, false, NULL);
+            MessageWriter_EndMessage(mainWriter, NULL);
+        }
+
+        MessageWriter_EndMessage(mainWriter, NULL);
+        InnerNetClient_SendOrDisconnect((InnerNetClient*)(*Game::pAmongUsClient), mainWriter, NULL);
+        MessageWriter_Recycle(mainWriter, NULL);
+
+        MessageWriter_Recycle(enterWriter, NULL);
+        MessageWriter_Recycle(bootWriter, NULL);
+    }
+    else if (player->fields._.OwnerId != targetNetId) {
+        // https://github.com/MrDiamond64/Hydra/blob/main/src/Utilities.cs#L299
+
+        auto enterWriter = MessageWriter_Get(SendOption__Enum::Reliable, NULL);
+        MessageWriter_WriteUShort(enterWriter, 6, NULL);
+        MessageWriter_WriteByte(enterWriter, (uint8_t)VentilationSystem_Operation__Enum::Enter, NULL);
+        MessageWriter_WriteByte(enterWriter, (uint8_t)ventId, NULL);
+
+        auto bootWriter = MessageWriter_Get(SendOption__Enum::Reliable, NULL);
+        MessageWriter_WriteUShort(bootWriter, 7, NULL);
+        MessageWriter_WriteByte(bootWriter, (uint8_t)VentilationSystem_Operation__Enum::BootImpostors, NULL);
+        MessageWriter_WriteByte(bootWriter, (uint8_t)ventId, NULL);
+
+        auto mainWriter = MessageWriter_Get(SendOption__Enum::Reliable, NULL);
+        MessageWriter_StartMessage(mainWriter, targetNetId >= 0 ? gameDataToTag : gameDataTag, NULL);
+        MessageWriter_WriteInt32(mainWriter, (*Game::pAmongUsClient)->fields._.GameId, NULL);
+        if (targetNetId >= 0) MessageWriter_WritePacked(mainWriter, targetNetId, NULL);
+
+        for (int i = 0; i < 2; ++i) {
+            MessageWriter_StartMessage(mainWriter, rpcFlag, NULL);
+            MessageWriter_WritePacked(mainWriter, (*Game::pShipStatus)->fields._.NetId, NULL);
+            MessageWriter_WriteByte(mainWriter, (uint8_t)RpcCalls__Enum::UpdateSystem, NULL);
+            MessageWriter_WriteByte(mainWriter, (uint8_t)SystemTypes__Enum::Ventilation, NULL);
+            MessageExtensions_WriteNetObject(mainWriter, (InnerNetObject*)player, NULL);
+            MessageWriter_WriteMessageWriter(mainWriter, i == 0 ? enterWriter : bootWriter, false, NULL);
+            MessageWriter_EndMessage(mainWriter, NULL);
+        }
+
+        MessageWriter_EndMessage(mainWriter, NULL);
+        InnerNetClient_SendOrDisconnect((InnerNetClient*)(*Game::pAmongUsClient), mainWriter, NULL);
+        MessageWriter_Recycle(mainWriter, NULL);
+
+        MessageWriter_Recycle(enterWriter, NULL);
+        MessageWriter_Recycle(bootWriter, NULL);
+
+        if (player == *Game::pLocalPlayer && !State.PanicMode && State.KillImmunity)
+            SendKillImmuneToggle(true);
+    }
+}
+
+std::string GetTimeString(bool useLeadingZeroForHours, bool showSeconds) {
+    auto nowTime = std::chrono::system_clock::now();
+    int offsetMin = State.TimeOffsetMinutes;
+    if (State.NegativeTimeOffset) offsetMin *= -1;
+    auto offsetTime = nowTime + std::chrono::minutes(offsetMin);
+
+    std::time_t t = std::chrono::system_clock::to_time_t(offsetTime);
+    std::tm tm = {};
+    gmtime_s(&tm, &t);
+    int hours = tm.tm_hour;
+    std::string secondStr = showSeconds ? std::format(":{}{}", tm.tm_sec < 10 ? "0" : "", tm.tm_sec) : "";
+    
+    if (State.Use12HourFormat) {
+        int h12 = (hours % 12 == 0) ? 12 : (hours % 12);
+        std::string hourStr = useLeadingZeroForHours ? std::format("{:%I}", offsetTime) :
+            std::format("{}", h12);
+        std::string remaining = std::format("{:%M}", offsetTime) + secondStr;
+        return std::format("{}:{} {}", hourStr, remaining, hours < 12 ? State.AmString : State.PmString);
+    }
+    
+    std::string hourStr = useLeadingZeroForHours ? std::format("{:%H}", offsetTime) :
+        std::format("{}", hours);
+    std::string remaining = std::format("{:%M}", offsetTime) + secondStr;
+    return std::format("{}:{}", hourStr, remaining);
+}
+
+void ReloadCurrentSceneIfNeeded() {
+    if (State.CurrentScene == "MainMenu" || State.CurrentScene == "MatchMaking") {
+        SceneManager_LoadScene(convert_to_string(State.CurrentScene), NULL);
+    }
+}
+
 //TODO: Workaround
 #define GET_VIRTUAL_INVOKE(obj, method) \
     ((VirtualInvokeData*)(&obj->klass->vtable))[ \
@@ -2376,7 +2657,6 @@ float GameOptions::GetGACooldown() const {
 RoleOptions& RoleOptions::SetRoleRate(app::RoleTypes__Enum role, int32_t maxCount, int32_t chance) {
     if (!_options) return *this;
     auto& func = GET_VIRTUAL_INVOKE_IFACE(_options, SetRoleRate);
-    if (role == (RoleTypes__Enum::Tracker)) role = (RoleTypes__Enum)10;
     ((void(*)(void*, app::RoleTypes__Enum, int32_t, int32_t, const void*))(func.methodPtr))
         (_options, role, maxCount, chance, func.method);
     return *this;
@@ -2385,7 +2665,6 @@ RoleOptions& RoleOptions::SetRoleRate(app::RoleTypes__Enum role, int32_t maxCoun
 RoleOptions& RoleOptions::SetRoleRecommended(app::RoleTypes__Enum role) {
     if (!_options) return *this;
     auto& func = GET_VIRTUAL_INVOKE_IFACE(_options, SetRoleRecommended);
-    if (role == (RoleTypes__Enum::Tracker)) role = (RoleTypes__Enum)10;
     ((void(*)(void*, app::RoleTypes__Enum, const void*))(func.methodPtr))(_options, role, func.method);
     return *this;
 }
@@ -2393,14 +2672,12 @@ RoleOptions& RoleOptions::SetRoleRecommended(app::RoleTypes__Enum role) {
 int32_t RoleOptions::GetNumPerGame(app::RoleTypes__Enum role) const {
     if (!_options) return 0;
     auto& func = GET_VIRTUAL_INVOKE_IFACE(_options, GetNumPerGame);
-    if (role == (RoleTypes__Enum::Tracker)) role = (RoleTypes__Enum)10;
     return ((int32_t(*)(void*, app::RoleTypes__Enum, const void*))(func.methodPtr))(_options, role, func.method);
 }
 
 int32_t RoleOptions::GetChancePerGame(app::RoleTypes__Enum role) const {
     if (!_options) return 0;
     auto& func = GET_VIRTUAL_INVOKE_IFACE(_options, GetChancePerGame);
-    if (role == (RoleTypes__Enum::Tracker)) role = (RoleTypes__Enum)10;
     return ((int32_t(*)(void*, app::RoleTypes__Enum, const void*))(func.methodPtr))(_options, role, func.method);
 }
 
@@ -2490,7 +2767,8 @@ void TrackPlayers()
         int pid = data->fields.PlayerId;
         auto modIt = State.modUsers.find(pid);
         if (modIt != State.modUsers.end()) {
-            cheatName = RemoveHtmlTags(modIt->second);
+            std::string modVersionDisplay = modIt->second[1].empty() ? "" : " " + modIt->second[1];
+            cheatName = RemoveHtmlTags(modIt->second[0] + modVersionDisplay);
             isCheater = true;
         }
 

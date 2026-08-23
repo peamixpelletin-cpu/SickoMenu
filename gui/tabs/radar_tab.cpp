@@ -12,10 +12,6 @@ namespace RadarTab {
 		if (ToggleButton("Show Radar", &State.ShowRadar)) {
 			State.Save();
 		}
-		ImGui::SameLine(0.f, 18.f * State.dpiScale);
-		if (ToggleButton("Show Others in Map", &State.ShowRadar_OthersInMap)) {
-			State.Save();
-		}
 
 		ImGui::Dummy(ImVec2(7, 7) * State.dpiScale);
 		ImGui::Separator();
@@ -28,6 +24,9 @@ namespace RadarTab {
 			State.Save();
 		}
 		if (ToggleButton("Right Click to Teleport", &State.ShowRadar_RightClickTP)) {
+			State.Save();
+		}
+		if (ToggleButton("(Shift + Left Click) to Close Room Door", &State.ShowRadar_ShiftLeftClickClosesRoomDoor)) {
 			State.Save();
 		}
 

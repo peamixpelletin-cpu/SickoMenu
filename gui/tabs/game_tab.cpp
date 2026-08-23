@@ -147,6 +147,15 @@ namespace GameTab {
         openOptions = group == Groups::Options;
     }
 
+    void OpenSubGroup(const std::string& name) {
+        if (name == "General") CloseOtherGroups(Groups::General);
+        else if (name == "Chat") CloseOtherGroups(Groups::Chat);
+        else if (name == "Anticheat") CloseOtherGroups(Groups::Anticheat);
+        else if (name == "Utils") CloseOtherGroups(Groups::Utils);
+        else if (name == "History") CloseOtherGroups(Groups::History);
+        else if (name == "Options" && (GameOptions().HasOptions() && (IsInGame() || IsInLobby()))) CloseOtherGroups(Groups::Options);
+    }
+
     void Render() {
         ImGui::SameLine(100 * State.dpiScale);
         ImGui::BeginChild("###Game", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
@@ -201,10 +210,10 @@ namespace GameTab {
                 if (CustomListBoxInt("Task Bar Updates", &State.TaskBarUpdates, TASKBARUPDATES, 225 * State.dpiScale))
                     State.PrevTaskBarUpdates = State.TaskBarUpdates;
             }*/
-            if (ToggleButton("No Ability Cooldown", &State.NoAbilityCD)) {
+            /*if (ToggleButton("No Ability Cooldown", &State.NoAbilityCD)) {
                 State.Save();
             }
-            ImGui::SameLine();
+            ImGui::SameLine();*/
             if (ToggleButton("Multiply Speed", &State.MultiplySpeed)) {
                 State.Save();
             }
@@ -321,9 +330,63 @@ namespace GameTab {
             if (IsInGame() && ToggleButton("Disable Venting", &State.DisableVents)) {
                 State.Save();
             }
-            if (IsInGame() && (IsHost() || !State.SafeMode)) ImGui::SameLine();
+            if (IsInGame()) {
+                ImGui::SameLine();
+                if (ToggleButton("Pause Vent Blocking While Venting", &State.PauseVentBlockingWhileVenting)) {
+                    State.Save();
+                }
+            }
             if (IsInGame() && (IsHost() || !State.SafeMode) && ToggleButton("Spam Report", &State.SpamReport)) {
                 State.Save();
+            }
+
+            if (IsInGame()/* && (IsHost() || !State.SafeMode)*/) {
+                std::vector<const char*> allVents;
+                switch (State.mapType) {
+                case Settings::MapType::Ship:
+                    allVents = SHIPVENTS;
+                    break;
+                case Settings::MapType::Hq:
+                    allVents = HQVENTS;
+                    break;
+                case Settings::MapType::Pb:
+                    allVents = PBVENTS;
+                    break;
+                case Settings::MapType::Airship:
+                    allVents = AIRSHIPVENTS;
+                    break;
+                case Settings::MapType::Fungle:
+                    allVents = FUNGLEVENTS;
+                    break;
+                }
+                State.SelectedVentId = std::clamp(State.SelectedVentId, 0, (int)allVents.size() - 1);
+
+                ImGui::SetNextItemWidth(100 * State.dpiScale);
+                CustomListBoxInt("Vent", &State.SelectedVentId, allVents);
+                ImGui::SameLine();
+                if (AnimatedButton("Teleport All to Vent")) {
+                    for (auto p : GetAllPlayerControl()) {
+                        if (State.IgnoreVentTpSelf && p == *Game::pLocalPlayer) continue;
+                        if (IsHost() || !State.SafeMode)
+                            State.rpcQueue.push(new RpcBootFromVent(p, (State.mapType == Settings::MapType::Hq) ? State.SelectedVentId + 1 : State.SelectedVentId)); //MiraHQ vents start from 1 instead of 0
+                        else
+                            State.rpcQueue.push(new RpcBootFromVentNonHost(p, (State.mapType == Settings::MapType::Hq) ? State.SelectedVentId + 1 : State.SelectedVentId)); //MiraHQ vents start from 1 instead of 0
+                    }
+                }
+                if (ToggleButton("Spam TP All to Vent", &State.SpamVentTpEveryone)) {
+                    if (State.SpamVentTpEveryone) State.SpamVentTpEveryoneRandom = false;
+                }
+                ImGui::SameLine();
+                if (ToggleButton("Spam TP All to Random Vents", &State.SpamVentTpEveryoneRandom)) {
+                    if (State.SpamVentTpEveryoneRandom) State.SpamVentTpEveryone = false;
+                }
+
+                if (ToggleButton("Ignore Self", &State.IgnoreVentTpSelf)) {
+                    State.Save();
+                }
+                if (IsInMultiplayerGame() && AnimatedButton("Attempt to Ban Everyone")) {
+                    State.rpcQueue.push(new AttemptToBan(NULL));
+                }
             }
 
             if ((IsInGame() || (IsInLobby() && State.KillInLobbies)) && (IsHost() || !State.SafeMode)) {
@@ -375,38 +438,6 @@ namespace GameTab {
                                     State.lobbyRpcQueue.push(new RpcMurderPlayer(player, player,
                                         player->fields.protectedByGuardianId < 0 || State.BypassAngelProt));
                             }
-                        }
-                    }
-                }
-
-                static int ventId = 0;
-                if (IsInGame() && (IsHost() || !State.SafeMode)) {
-                    std::vector<const char*> allVents;
-                    switch (State.mapType) {
-                    case Settings::MapType::Ship:
-                        allVents = SHIPVENTS;
-                        break;
-                    case Settings::MapType::Hq:
-                        allVents = HQVENTS;
-                        break;
-                    case Settings::MapType::Pb:
-                        allVents = PBVENTS;
-                        break;
-                    case Settings::MapType::Airship:
-                        allVents = AIRSHIPVENTS;
-                        break;
-                    case Settings::MapType::Fungle:
-                        allVents = FUNGLEVENTS;
-                        break;
-                    }
-                    ventId = std::clamp(ventId, 0, (int)allVents.size() - 1);
-
-                    ImGui::SetNextItemWidth(100 * State.dpiScale);
-                    CustomListBoxInt("Vent", &ventId, allVents);
-                    ImGui::SameLine();
-                    if (AnimatedButton("Teleport All to Vent")) {
-                        for (auto p : GetAllPlayerControl()) {
-                            State.rpcQueue.push(new RpcBootFromVent(p, (State.mapType == Settings::MapType::Hq) ? ventId + 1 : ventId)); //MiraHQ vents start from 1 instead of 0
                         }
                     }
                 }
@@ -512,7 +543,7 @@ namespace GameTab {
             {
                 State.Save();
             }
-            if (IsHost() || !State.SafeMode) {
+            if ((IsHost() && IsInGame()) || !State.SafeMode) {
                 if (CustomListBoxInt("Chat Spam Mode", &State.ChatSpamMode,
                     { State.SafeMode ? "With Message (Self-Spam ONLY)" : "With Message", "Blank Chat", State.SafeMode ? "Self Message + Blank Chat" : "Message + Blank Chat" })) State.Save();
             }
@@ -620,7 +651,7 @@ namespace GameTab {
                 }
             }
             ImGui::Text("Detect Actions:");
-            if (ToggleButton("AUM/KillNetwork Usage", &State.SMAC_CheckAUM)) State.Save();
+            if (ToggleButton("Known Cheat Usage", &State.SMAC_CheckOtherCheats)) State.Save();
             ImGui::SameLine();
             if (ToggleButton("SickoMenu Usage", &State.SMAC_CheckSicko)) State.Save();
             ImGui::SameLine();
@@ -656,6 +687,8 @@ namespace GameTab {
             ImGui::SameLine();
             if (ToggleButton("Abnormal Sabotages", &State.SMAC_CheckSabotage)) State.Save();
             if (ToggleButton("Abnormal Player Levels (0 to ignore)", &State.SMAC_CheckLevel)) State.Save();
+            ImGui::SameLine();
+            if (ToggleButton("Abnormal Friendcode", &State.SMAC_CheckFriendcode)) State.Save();
             if (State.SMAC_CheckLevel && ImGui::InputInt("Level >=", &State.SMAC_HighLevel)) {
                 State.Save();
             }
@@ -687,6 +720,42 @@ namespace GameTab {
                         State.SMAC_BadWords.erase(State.SMAC_BadWords.begin() + selectedWordIndex);
                 }
             }
+
+            if (ToggleButton("Blocked Start Words", &State.SMAC_CheckStartWords)) State.Save();
+            if (State.SMAC_CheckStartWords) {
+                ImGui::SameLine();
+                if (ToggleButton("Strict Detection", &State.SMAC_StartWordsStrict)) State.Save();
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(80.0f * State.dpiScale);
+                if (ImGui::InputInt("Violations Before Action", &State.SMAC_StartWordsThreshold)) {
+                    if (State.SMAC_StartWordsThreshold < 1) State.SMAC_StartWordsThreshold = 1;
+                    State.Save();
+                }
+                if (State.SMAC_StartWords.empty())
+                    ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No start words added!");
+                static std::string newStartWord = "";
+                InputString("New W\u043Erd", &newStartWord, ImGuiInputTextFlags_EnterReturnsTrue);
+                ImGui::SameLine();
+                if (AnimatedButton("Add Word##StartWord")) {
+                    State.SMAC_StartWords.push_back(newStartWord);
+                    State.Save();
+                    newStartWord = "";
+                }
+                if (!State.SMAC_StartWords.empty()) {
+                    static int selectedStartWordIndex = 0;
+                    selectedStartWordIndex = std::clamp(selectedStartWordIndex, 0, (int)State.SMAC_StartWords.size() - 1);
+                    std::vector<const char*> startWordVector(State.SMAC_StartWords.size(), nullptr);
+                    for (size_t i = 0; i < State.SMAC_StartWords.size(); i++) {
+                        startWordVector[i] = State.SMAC_StartWords[i].c_str();
+                    }
+                    CustomListBoxInt("Start Word to Remove", &selectedStartWordIndex, startWordVector);
+                    ImGui::SameLine();
+                    if (AnimatedButton("Remove##StartWord")) {
+                        State.SMAC_StartWords.erase(State.SMAC_StartWords.begin() + selectedStartWordIndex);
+                        State.Save();
+                    }
+                }
+            }
         }
 
         if (openUtils) {
@@ -696,10 +765,21 @@ namespace GameTab {
             if (ToggleButton("Ignore Whitelisted Players [Ban/Kick]", &State.Ban_IgnoreWhitelist)) {
                 State.Save();
             }
+
             if (IsInLobby() && ToggleButton("Attempt to Crash Lobby", &State.CrashSpamReport)) {
                 State.Save();
             }
+
             if (State.CrashSpamReport) ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), ("When the game starts, the lobby is destroyed"));
+
+            /*if (!IsInGame() && !IsInLobby()) {
+                if (ToggleButton("Overflow", &State.Overflow)) {
+                    State.Save();
+                }
+
+                if (State.Overflow) ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), ("Players who joined a lobby before you are disconnected after 30 seconds"));
+            }*/
+
             if (State.AprilFoolsMode) {
                 ImGui::TextColored(ImVec4(0.79f, 0.03f, 1.f, 1.f), State.DiddyPartyMode ? "Diddy Party Mode" : (IsChatCensored() || IsStreamerMode() ? "F***son Mode" : "Fuckson Mode"));
                 if (ToggleButton("Mog Everyone [Sigma]", &State.BrainrotEveryone)) {
@@ -772,7 +852,7 @@ namespace GameTab {
                     State.Save();
                 }
                 ImGui::Dummy(ImVec2(15, 15) * State.dpiScale);
-                if (ToggleButton("Ban Auto-Rejoin Players", &State.BanLeavers)) {
+                if (ToggleButton("Ban Repeatedly Rejoining Players", &State.BanLeavers)) {
                     State.Save();
                 }
                 ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
@@ -1072,9 +1152,25 @@ namespace GameTab {
         }
 
         if (openHistory) {
-            ImGui::Text("Last 100 players:");
+            ImGui::Dummy(ImVec2(0, 3)* State.dpiScale);
+            if (ImGui::CollapsingHeader("Player History", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Text("Last 100 players:");
+
+            static std::string historySearchBuf = "";
+            ImGui::SetNextItemWidth(200);
+            InputString("##HistorySearch", &historySearchBuf);
+            ImGui::SameLine();
+            ImGui::TextDisabled("Search");
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Filter by name, friend code, or PUID");
 
             static int selectedIndex = -1;
+
+            static std::string lastSearchQuery = "";
+            if (historySearchBuf != lastSearchQuery) {
+                lastSearchQuery = historySearchBuf;
+                selectedIndex = -1;
+            }
 
             std::vector<std::string> decoratedStorage;
             decoratedStorage.reserve(State.PlayerHistory.size());
@@ -1084,6 +1180,9 @@ namespace GameTab {
             names.reserve(State.PlayerHistory.size());
             filteredIndices.reserve(State.PlayerHistory.size());
 
+            std::string searchQuery = historySearchBuf;
+            std::transform(searchQuery.begin(), searchQuery.end(), searchQuery.begin(), ::tolower);
+
             for (int i = 0; i < (int)State.PlayerHistory.size(); ++i)
             {
                 auto& p = State.PlayerHistory[i];
@@ -1091,6 +1190,19 @@ namespace GameTab {
                 bool visible = (itf != State.platformFilters.end()) ? itf->second : true;
                 if (!visible) continue;
 
+                if (!searchQuery.empty()) {
+                    std::string lnick = p.Nick;
+                    std::transform(lnick.begin(), lnick.end(), lnick.begin(), ::tolower);
+                    std::string lfc = p.FriendCode;
+                    std::transform(lfc.begin(), lfc.end(), lfc.begin(), ::tolower);
+                    std::string lpuid = p.Puid;
+                    std::transform(lpuid.begin(), lpuid.end(), lpuid.begin(), ::tolower);
+
+                    if (lnick.find(searchQuery) == std::string::npos &&
+                        lfc.find(searchQuery) == std::string::npos &&
+                        lpuid.find(searchQuery) == std::string::npos)
+                        continue;
+                }
                 std::string decorated = p.Nick;
 
                 if (p.NameCheck) decorated = "[!] " + decorated;
@@ -1304,7 +1416,8 @@ namespace GameTab {
                     int pid = data->fields.PlayerId;
                     auto modIt = State.modUsers.find(pid);
                     if (modIt != State.modUsers.end()) {
-                        cheatName = RemoveHtmlTags(modIt->second);
+                        std::string modVersionDisplay = modIt->second[1].empty() ? "" : " " + modIt->second[1];
+                        cheatName = RemoveHtmlTags(modIt->second[0] + modVersionDisplay);
                         isCheater = true;
                     }
 
@@ -1317,7 +1430,7 @@ namespace GameTab {
                 if (changed) State.Save();
             }
 
-            ImGui::Dummy(ImVec2(5, 5)* State.dpiScale);
+            ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
 
             if (ImGui::CollapsingHeader("Platform Filters"))
             {
@@ -1332,6 +1445,59 @@ namespace GameTab {
                 }
 
                 ImGui::Columns(1);
+            }
+
+            ImGui::Dummy(ImVec2(5, 5)* State.dpiScale);
+            }
+
+            if (ImGui::CollapsingHeader("Lobby History", ImGuiTreeNodeFlags_DefaultOpen)) {
+                if (State.LobbyHistory.empty()) {
+                    ImGui::TextDisabled("No lobbies visited yet.");
+                }
+                else {
+                    if (SliderIntV2("Lobbies to Show", &State.LobbyHistoryLimit, 1, 50, "%d", ImGuiSliderFlags_NoInput))
+                        State.Save();
+                    int displayCount = (int)State.LobbyHistory.size() < State.LobbyHistoryLimit ? (int)State.LobbyHistory.size() : State.LobbyHistoryLimit;
+                    ImGui::Text("Last %d/%d lobbies:", displayCount, State.LobbyHistoryLimit);
+                    ImGui::Columns(3, "lobbyHistoryCols", false);
+                    ImGui::SetColumnWidth(0, 80 * State.dpiScale);
+                    ImGui::SetColumnWidth(1, 120 * State.dpiScale);
+                    ImGui::SetColumnWidth(2, 160 * State.dpiScale);
+
+                    ImGui::TextDisabled("Code"); ImGui::NextColumn();
+                    ImGui::TextDisabled("Host"); ImGui::NextColumn();
+                    ImGui::NextColumn();
+                    ImGui::Separator();
+
+                    int lobbyCount = 0;
+                    for (auto& lobby : State.LobbyHistory) {
+                        if (lobbyCount >= State.LobbyHistoryLimit) break;
+                        lobbyCount++;
+                        ImGui::Text("%s", lobby.Code.c_str());
+                        ImGui::NextColumn();
+                        ImGui::Text("%s", lobby.HostName.empty() ? "Unknown" : lobby.HostName.c_str());
+                        ImGui::NextColumn();
+                        if (AnimatedButton(("Copy##" + lobby.Code).c_str()))
+                            ImGui::SetClipboardText(lobby.Code.c_str());
+                        ImGui::SameLine();
+                        if (AnimatedButton(("Join##" + lobby.Code).c_str())) {
+                            State.JoinLobbyCode = lobby.Code;
+                            State.JoinLobby = true;
+                        }
+                        ImGui::SameLine();
+                        if (AnimatedButton(("Clear##" + lobby.Code).c_str())) {
+                            State.LobbyHistory.erase(std::remove_if(State.LobbyHistory.begin(), State.LobbyHistory.end(),
+                                [&lobby](const auto& l) { return l.Code == lobby.Code; }), State.LobbyHistory.end());
+                            break;
+                        }
+                        ImGui::NextColumn();
+                    }
+                    ImGui::Columns(1);
+
+                    ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
+                    if (AnimatedButton("Clear History##lobby"))
+                        State.LobbyHistory.clear();
+                }
             }
         }
 

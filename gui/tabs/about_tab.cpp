@@ -31,6 +31,7 @@ namespace AboutTab {
     const ImVec4 GoatCol = ImVec4(0.937f, 0.004f, 0.263f, 1.0f);
     const ImVec4 DevCol = ImVec4(0.102f, 0.7373f, 0.6118f, 1.0f);
     const ImVec4 ContributorCol = ImVec4(0.3804f, 0.4314f, 0.7961f, 1.0f);
+    const ImVec4 PreReleaseCol = ImVec4(0.656f, 0.f, 1.f, 1.f);
 
     void Render() {
         ImGui::SameLine(100 * State.dpiScale);
@@ -48,7 +49,10 @@ namespace AboutTab {
             ImGui::SameLine(0.0f, 0.0f);
             ImGui::TextColored(SickoCol, "SickoMenu");
             ImGui::SameLine(0.0f, 0.0f);
-            ImGui::TextColored(GoldCol, std::format(" {}", State.SickoVersion).c_str());
+            if (State.SickoVersion.find("pr") != std::string::npos || State.SickoVersion.find("rc") != std::string::npos)
+                ImGui::TextColored(PreReleaseCol, std::format(" {}", State.SickoVersion).c_str());
+            else
+                ImGui::TextColored(GoldCol, std::format(" {}", State.SickoVersion).c_str());
             ImGui::SameLine(0.0f, 0.0f);
             ImGui::Text(" by ");
             ImGui::SameLine(0.0f, 0.0f);
@@ -79,7 +83,7 @@ namespace AboutTab {
 
             ImGui::TextColored(SickoCol, "SickoMenu");
             ImGui::SameLine(0.0f, 0.0f);
-            ImGui::Text(" is a free and open-source software.");
+            ImGui::Text(" is free and open-source software.");
 
             if (State.SickoVersion.find("pr") != std::string::npos || State.SickoVersion.find("rc") != std::string::npos) {
                 if (State.SickoVersion.find("pr") != std::string::npos) ImGui::TextColored(State.RgbColor, "You have access to pre-releases, enjoy!");
@@ -143,7 +147,7 @@ namespace AboutTab {
             }
 
             if (ColoredButton(DevCol, "Luckyheat")) {
-                OpenLink("https://github.com/Luckyheat");
+                OpenLink("https://github.com/L9-ILVrnl");
             }
             ImGui::SameLine(100.f * State.dpiScale);
             if (ColoredButton(DevCol, "UN83991956")) {
@@ -154,8 +158,8 @@ namespace AboutTab {
                 OpenLink("https://github.com/HarithGamerPk");
             }
 
-            if (ColoredButton(DevCol, "dark-lord333")) {
-                OpenLink("https://github.com/dark-lord333");
+            if (ColoredButton(DevCol, "Hisoka")) {
+                OpenLink("https://github.com/mad-magician7");
             }
             ImGui::SameLine(100.f * State.dpiScale);
             if (ColoredButton(DevCol, "WhoAboutYT")) {

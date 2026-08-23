@@ -70,23 +70,6 @@ static bool CanDrawRadar()
     return !State.PanicMode && IsInGame() && State.ShowRadar && (!State.InMeeting || !State.HideRadar_During_Meetings);
 }
 
-static bool IsChatOpen()
-{
-    auto hud = Game::HudManager.GetInstance();
-    if (hud == nullptr || hud->fields.Chat == nullptr)
-        return false;
-
-    auto chatState = hud->fields.Chat->fields.state;
-    return chatState == ChatControllerState__Enum::Open ||
-        chatState == ChatControllerState__Enum::Opening ||
-        chatState == ChatControllerState__Enum::Closing;
-}
-
-static bool CanDrawMapPlayers()
-{
-    return !State.PanicMode && IsInGame() && State.ShowRadar_OthersInMap && State.IsNormalMapOpen && !IsChatOpen();
-}
-
 static bool CanDrawReplay()
 {
     return !State.PanicMode && IsInGame() && State.ShowReplay;
@@ -113,7 +96,21 @@ LRESULT __stdcall dWndProc(const HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         ReleaseSemaphore(DirectX::hRenderSemaphore, 1, NULL);
     }
 
-    KeyBinds::WndProc(uMsg, wParam, lParam);
+    if (!ImGui::GetIO().WantTextInput) {
+        KeyBinds::WndProc(uMsg, wParam, lParam);
+    }
+    else {
+        // let the menu get toggled while in any menu text field but suppress every other keybind like zoom etc
+        switch (uMsg) {
+        case WM_KEYDOWN: case WM_KEYUP: case WM_SYSKEYDOWN: case WM_SYSKEYUP:
+            if ((uint8_t)wParam == State.KeyBinds.Toggle_Sicko || (uint8_t)wParam == State.KeyBinds.Toggle_Menu) // panic mode or show/hide menu
+                KeyBinds::WndProc(uMsg, wParam, lParam);
+            break;
+        default:
+            KeyBinds::WndProc(uMsg, wParam, lParam);
+            break;
+        }
+    }
 
     bool shouldKeybindsActivate = !State.PanicMode && !State.KeybindsBeingEdited && (!State.ChatFocused || State.KeybindsWhileChatting) /*disable keybinds when chatting*/;
 
@@ -125,7 +122,17 @@ LRESULT __stdcall dWndProc(const HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Noclip) && (IsInGame() || IsInLobby())) { State.NoClip = !State.NoClip; State.HotkeyNoClip = true; }
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Autokill) && (IsInGame() || IsInLobby())) State.AutoKill = !State.AutoKill;
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Close_All_Doors) && IsInGame()) State.CloseAllDoors = true;
-        if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Zoom) && (IsInGame() || IsInLobby())) { State.EnableZoom = !State.EnableZoom; if (!State.EnableZoom) RefreshChat(); }
+        if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Zoom) && (IsInGame() || IsInLobby())) {
+            State.EnableZoom = !State.EnableZoom;
+            if (!State.EnableZoom && Game::HudManager.IsInstanceExists()) {
+                auto hud = Game::HudManager.GetInstance();
+                bool isKillOverlayActive = hud->fields.KillOverlay != NULL &&
+                    KillOverlay_get_IsOpen((KillOverlay*)hud->fields.KillOverlay, NULL);
+                if (isKillOverlayActive) State.EnableZoom = true;
+                // the ProgressTracker disappears if you disable zoom during the kill animation
+            }
+            State.HasRefreshedUI = false;
+        }
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Freecam) && (IsInGame() || IsInLobby())) {
             State.FreeCam = !State.FreeCam;
             State.playerToFollow = {};
@@ -134,29 +141,36 @@ LRESULT __stdcall dWndProc(const HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Replay)) State.ShowReplay = !State.ShowReplay;
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_ChatAlwaysActive) && (IsInGame() || IsInLobby())) State.ChatAlwaysActive = !State.ChatAlwaysActive;
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_ReadGhostMessages) && (IsInGame() || IsInLobby())) State.ReadGhostMessages = !State.ReadGhostMessages;
-        if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Hud) && (IsInGame() || IsInLobby())) State.DisableHud = !State.DisableHud;
+        if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Hud) && IsInGame()) State.DisableHud = !State.DisableHud;
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Reset_Appearance) && (IsInGame() || IsInLobby())) ControlAppearance(false);
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Randomize_Appearance)) ControlAppearance(true);
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Complete_Tasks) && IsInGame()) CompleteAllTasks();
+        if (KeyBinds::IsKeyPressed(State.KeyBinds.Leave_Game) && (IsInGame() || IsInLobby()) && !State.PanicMode)
+            app::AmongUsClient_ExitGame((*Game::pAmongUsClient), DisconnectReasons__Enum::ExitGame, NULL);
     }
-    if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Sicko)) State.PanicMode = !State.PanicMode;
+    if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Sicko)) {
+        State.PanicMode = !State.PanicMode;
+        State.MIG_ThemeChanged = true;
+        ReloadCurrentSceneIfNeeded();
+    }
 
     if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
         return true;
 
-    auto hud = Game::HudManager.GetInstance();
-    if ((IsInGame() || IsInLobby()) && hud != nullptr && hud->fields.Chat != NULL && shouldKeybindsActivate) {
-        bool chatOpen = IsChatOpen();
-        bool isScrollModifierAllowed = !chatOpen && !State.InMeeting;
+    if ((IsInGame() || IsInLobby()) && Game::HudManager.GetInstance()->fields.Chat != NULL && shouldKeybindsActivate) {
+        auto chatState = Game::HudManager.GetInstance()->fields.Chat->fields.state;
+        bool chatOpen = chatState == ChatControllerState__Enum::Open || chatState == ChatControllerState__Enum::Opening || chatState == ChatControllerState__Enum::Closing;
+        bool isScrollModifierAllowed = !chatOpen && !State.InMeeting && State.EnableZoom_ScrollZoom;
+        bool isShifted = ImGui::IsKeyDown(VK_SHIFT) || ImGui::IsKeyDown(VK_LSHIFT) || ImGui::IsKeyDown(VK_RSHIFT);
 
-        if (isScrollModifierAllowed && State.EnableZoom && (IsInGame() || IsInLobby())) {
+        if (!isShifted && isScrollModifierAllowed && State.EnableZoom && (IsInGame() || IsInLobby())) {
             if (ImGui::GetIO().MouseWheel < 0.f)  State.CameraHeight += 0.5f;
             if (ImGui::GetIO().MouseWheel > 0.f) {
                 State.CameraHeight -= 0.5f;
                 if (State.CameraHeight < 1.f) State.CameraHeight = 1.f;
             }
         }
-        if ((ImGui::IsKeyDown(VK_SHIFT) || ImGui::IsKeyDown(VK_LSHIFT) || ImGui::IsKeyDown(VK_RSHIFT)) &&
+        if (isShifted &&
             isScrollModifierAllowed && State.FreeCam && (IsInGame() || IsInLobby())) {
             if (ImGui::GetIO().MouseWheel < 0.f) State.FreeCamSpeed += 0.1f;
             if (ImGui::GetIO().MouseWheel > 0.f) {
@@ -225,79 +239,40 @@ bool ImGuiInitialization(IDXGISwapChain* pSwapChain) {
     return false;
 }
 
+static const ImWchar* GetAllGlyphRanges(ImGuiIO& io) {
+    static ImVector<ImWchar> ranges;
+
+    if (ranges.empty()) {
+        auto add = [&](const ImWchar* r)
+            {
+                while (r[0] != 0 || r[1] != 0)
+                {
+                    ranges.push_back(r[0]);
+                    ranges.push_back(r[1]);
+                    r += 2;
+                }
+            };
+
+        static const ImWchar allCharsRanges[] =
+        {
+            0x0020, 0xFFFF,
+            0,
+        };
+
+        add(&allCharsRanges[0]);
+        ranges.push_back(0);
+        ranges.push_back(0);
+    }
+
+    return ranges.Data;
+}
+
 static void RebuildFont() {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\Arial.ttf", 14 * State.dpiScale, nullptr, io.Fonts->GetGlyphRangesCyrillic());
-    do {
-        const ImWchar* glyph_ranges;
-        wchar_t locale[LOCALE_NAME_MAX_LENGTH] = { 0 };
-        ::GetUserDefaultLocaleName(locale, LOCALE_NAME_MAX_LENGTH);
-        if (!_wcsnicmp(locale, L"zh-", 3)) {
-            // China
-            glyph_ranges = io.Fonts->GetGlyphRangesChineseSimplifiedCommon();
-        }
-        else if (!_wcsnicmp(locale, L"ja-", 3)) {
-            // Japan
-            glyph_ranges = io.Fonts->GetGlyphRangesJapanese();
-        }
-        else if (!_wcsnicmp(locale, L"ko-", 3)) {
-            // Korea
-            glyph_ranges = io.Fonts->GetGlyphRangesKorean();
-        }
-        else {
-            break;
-        }
-        NONCLIENTMETRICSW nm = { sizeof(NONCLIENTMETRICSW) };
-        if (!::SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, nm.cbSize, &nm, 0))
-            break;
-        auto hMessageFont = ::CreateFontIndirectW(&nm.lfMessageFont);
-        if (!hMessageFont)
-            break;
-        void* fontData = nullptr;
-        HDC hdc = ::GetDC(DirectX::window);
-        auto hDefaultFont = ::SelectObject(hdc, hMessageFont);
-        do {
-            // Try to get TTC first
-            DWORD dwTableTag = 0x66637474;/*TTCTag*/
-            DWORD dwSize = ::GetFontData(hdc, dwTableTag, 0, 0, 0);
-            if (dwSize == GDI_ERROR) {
-                // Maybe TTF
-                dwTableTag = 0;
-                dwSize = ::GetFontData(hdc, 0, 0, 0, 0);
-                if (dwSize == GDI_ERROR)
-                    break;
-            }
-            fontData = IM_ALLOC(dwSize);
-            if (!fontData)
-                break;
-            if (::GetFontData(hdc, dwTableTag, 0, fontData, dwSize) != dwSize)
-                break;
-            ImFontConfig config;
-            if (dwTableTag != 0) {
-                // Get index of font within TTC
-                DWORD dwTTFSize = ::GetFontData(hdc, 0, 0, 0, 0);
-                if (dwTTFSize < dwSize) {
-                    auto offsetTTF = dwSize - dwTTFSize;
-                    int n = stbtt_GetNumberOfFonts((unsigned char*)fontData);
-                    for (int index = 0; index<n; index++) {
-                        if (offsetTTF == ttULONG((unsigned char*)fontData + 12 + index * 4)) {
-                            config.FontNo = index;
-                            break;
-                        }
-                    }
-                }
-            }
-            config.MergeMode = true;
-            io.Fonts->AddFontFromMemoryTTF(fontData, dwSize, 14 * State.dpiScale, &config, glyph_ranges);
-            fontData = nullptr;
-        } while (0);
-        if (fontData)
-            IM_FREE(fontData);
-        ::SelectObject(hdc, hDefaultFont);
-        ::DeleteObject(hMessageFont);
-        ::ReleaseDC(DirectX::window, hdc);
-    } while (0);
+    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\Arial.ttf", 14 * State.dpiScale, nullptr,
+        GetAllGlyphRanges(io));
+
     io.Fonts->Build();
 }
 
@@ -361,11 +336,6 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
         State.TempPanicMode = false;
     }
 
-    if (!State.PanicMode && IsInGame() && !State.InMeeting)
-    {
-        Radar::CaptureMapPlayerPositions();
-    }
-
     if (!State.PanicMode && State.ShowMenu)
     {
         ImGuiRenderer::Submit([]() { Menu::Render(); });
@@ -407,11 +377,6 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
     if (CanDrawRadar())
     {
             ImGuiRenderer::Submit([]() { Radar::Render(); });
-    }
-
-    if (CanDrawMapPlayers())
-    {
-        ImGuiRenderer::Submit([]() { Radar::RenderMapPlayers(); });
     }
 
     if (CanDrawReplay())

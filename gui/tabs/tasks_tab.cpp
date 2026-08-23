@@ -6,33 +6,204 @@
 #include "gui-helpers.hpp"
 
 namespace TasksTab {
+	using TaskList = std::vector<TaskTypes__Enum>;
+
+	static const TaskList skeldTasks = {
+		TaskTypes__Enum::SubmitScan, TaskTypes__Enum::PrimeShields, TaskTypes__Enum::FuelEngines,
+		TaskTypes__Enum::ChartCourse, TaskTypes__Enum::StartReactor, TaskTypes__Enum::SwipeCard,
+		TaskTypes__Enum::ClearAsteroids, TaskTypes__Enum::UploadData, TaskTypes__Enum::EmptyChute,
+		TaskTypes__Enum::EmptyGarbage, TaskTypes__Enum::AlignEngineOutput, TaskTypes__Enum::FixWiring,
+		TaskTypes__Enum::CalibrateDistributor, TaskTypes__Enum::DivertPower, TaskTypes__Enum::UnlockManifolds,
+		TaskTypes__Enum::CleanO2Filter, TaskTypes__Enum::VentCleaning, TaskTypes__Enum::StabilizeSteering,
+	};
+	static const TaskList miraHqTasks = {
+		TaskTypes__Enum::SubmitScan, TaskTypes__Enum::PrimeShields, TaskTypes__Enum::UploadData,
+		TaskTypes__Enum::StartReactor, TaskTypes__Enum::ClearAsteroids, TaskTypes__Enum::EmptyGarbage,
+		TaskTypes__Enum::FixWiring, TaskTypes__Enum::DivertPower, TaskTypes__Enum::UnlockManifolds,
+		TaskTypes__Enum::VentCleaning, TaskTypes__Enum::AssembleArtifact, TaskTypes__Enum::SortSamples,
+		TaskTypes__Enum::MeasureWeather, TaskTypes__Enum::EnterIdCode, TaskTypes__Enum::BuyBeverage,
+		TaskTypes__Enum::ProcessData, TaskTypes__Enum::RunDiagnostics, TaskTypes__Enum::WaterPlants,
+		TaskTypes__Enum::MonitorOxygen,
+	};
+	static const TaskList polusTasks = {
+		TaskTypes__Enum::SubmitScan, TaskTypes__Enum::FuelEngines, TaskTypes__Enum::ChartCourse,
+		TaskTypes__Enum::StartReactor, TaskTypes__Enum::SwipeCard, TaskTypes__Enum::ClearAsteroids,
+		TaskTypes__Enum::UploadData, TaskTypes__Enum::InspectSample, TaskTypes__Enum::EmptyGarbage,
+		TaskTypes__Enum::AlignEngineOutput, TaskTypes__Enum::FixWiring, TaskTypes__Enum::UnlockManifolds,
+		TaskTypes__Enum::StoreArtifacts, TaskTypes__Enum::FillCanisters, TaskTypes__Enum::FixWeatherNode,
+		TaskTypes__Enum::InsertKeys, TaskTypes__Enum::ScanBoardingPass, TaskTypes__Enum::OpenWaterways,
+		TaskTypes__Enum::ReplaceWaterJug, TaskTypes__Enum::RepairDrill, TaskTypes__Enum::AlignTelescope,
+		TaskTypes__Enum::RecordTemperature,
+	};
+	static const TaskList airshipTasks = {
+		TaskTypes__Enum::FuelEngines, TaskTypes__Enum::UploadData, TaskTypes__Enum::EmptyChute,
+		TaskTypes__Enum::EmptyGarbage, TaskTypes__Enum::FixWiring, TaskTypes__Enum::CalibrateDistributor,
+		TaskTypes__Enum::DivertPower, TaskTypes__Enum::StabilizeSteering, TaskTypes__Enum::PolishRuby,
+		TaskTypes__Enum::ResetBreakers, TaskTypes__Enum::Decontaminate, TaskTypes__Enum::MakeBurger,
+		TaskTypes__Enum::UnlockSafe, TaskTypes__Enum::SortRecords, TaskTypes__Enum::PutAwayPistols,
+		TaskTypes__Enum::FixShower, TaskTypes__Enum::CleanToilet, TaskTypes__Enum::DressMannequin,
+		TaskTypes__Enum::PickUpTowels, TaskTypes__Enum::RewindTapes, TaskTypes__Enum::StartFans,
+		TaskTypes__Enum::DevelopPhotos, TaskTypes__Enum::GetBiggolSword, TaskTypes__Enum::PutAwayRifles,
+		TaskTypes__Enum::StopCharles, TaskTypes__Enum::VentCleaning,
+	};
+	static const TaskList fungleTasks = {
+		TaskTypes__Enum::UploadData, TaskTypes__Enum::FixWiring, TaskTypes__Enum::VentCleaning,
+		TaskTypes__Enum::RecordTemperature, TaskTypes__Enum::BuildSandcastle, TaskTypes__Enum::CatchFish,
+		TaskTypes__Enum::CollectShells, TaskTypes__Enum::LiftWeights, TaskTypes__Enum::RoastMarshmallow,
+		TaskTypes__Enum::TestFrisbee, TaskTypes__Enum::CollectSamples, TaskTypes__Enum::CollectVegetables,
+		TaskTypes__Enum::HoistSupplies, TaskTypes__Enum::MineOres, TaskTypes__Enum::PolishGem,
+		TaskTypes__Enum::ReplaceParts, TaskTypes__Enum::CrankGenerator, TaskTypes__Enum::TuneRadio,
+		TaskTypes__Enum::ExtractFuel, TaskTypes__Enum::MonitorMushroom, TaskTypes__Enum::PlayVideogame,
+	};
+
+	static void RenderTaskEnforcer() {
+		if (ImGui::CollapsingHeader("Task Enforcer", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
+			if (ToggleButton("Auto Kick Slackers", &State.AutoKickSlackers))
+				State.Save();
+			ImGui::SameLine();
+			if (ToggleButton("Ignore Whitelisted Players", &State.AutoKickSlackersIgnoreWhitelist))
+				State.Save();
+			ImGui::Text("Kicks players below task threshold after grace period.");
+			if (SliderIntV2("Task Threshold %", &State.AutoKickSlackersThreshold, 1, 100, "%d%%", ImGuiSliderFlags_NoInput))
+				State.Save();
+			if (SliderIntV2("Grace Period (sec)", &State.AutoKickSlackersGrace, 50, 500, "%ds", ImGuiSliderFlags_NoInput))
+				State.Save();
+		}
+	}
+
+	static void RenderDisableTasks() {
+		if (ImGui::CollapsingHeader("Disable Tasks", ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::TextDisabled("Disabled tasks won't be assigned next game.");
+			ImGui::Dummy(ImVec2(3, 3) * State.dpiScale);
+			if (AnimatedButton("Clear All##disabletasks"))
+				State.DisabledTaskTypes.clear();
+			ImGui::Dummy(ImVec2(3, 3) * State.dpiScale);
+
+			int mapId = GameOptions().GetByte(app::ByteOptionNames__Enum::MapId);
+			const TaskList* currentTasks = &skeldTasks;
+			const char* mapName = "The Skeld";
+			switch (mapId) {
+			case 1: currentTasks = &miraHqTasks; mapName = "Mira HQ"; break;
+			case 2: currentTasks = &polusTasks; mapName = "Polus"; break;
+			case 4: currentTasks = &airshipTasks; mapName = "Airship"; break;
+			case 5: currentTasks = &fungleTasks; mapName = "Fungle"; break;
+			default: break;
+			}
+
+			ImGui::TextDisabled("Map: %s", mapName);
+			ImGui::Dummy(ImVec2(3, 3) * State.dpiScale);
+			ImVec4 themeCol = State.RgbMenuTheme ? State.RgbColor : (State.GradientMenuTheme ? State.MenuGradientColor : State.MenuThemeColor);
+			ImVec4 themeColDark = ImVec4(themeCol.x * 0.7f, themeCol.y * 0.7f, themeCol.z * 0.7f, themeCol.w);
+			ImVec4 themeColDarker = ImVec4(themeCol.x * 0.5f, themeCol.y * 0.5f, themeCol.z * 0.5f, themeCol.w);
+
+			ImGui::Columns(2, "disabledTasksCols", false);
+			for (auto taskType : *currentTasks) {
+				int id = (int)taskType;
+				const char* name = TranslateTaskTypes(taskType);
+				bool disabled = State.DisabledTaskTypes.count(id) > 0;
+				ImGui::PushStyleColor(ImGuiCol_Button, disabled ? themeCol : ImVec4(0.f, 0.f, 0.f, 0.f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, disabled ? themeColDarker : themeColDark);
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, themeCol);
+				if (AnimatedButton((std::string(name) + "##" + std::to_string(id)).c_str())) {
+					if (disabled) State.DisabledTaskTypes.erase(id);
+					else State.DisabledTaskTypes.insert(id);
+				}
+				ImGui::PopStyleColor(3);
+				ImGui::NextColumn();
+			}
+			ImGui::Columns(1);
+		}
+	}
+
+	void DrainHideTimer() {
+		// reference: https://github.com/MrDiamond64/Hydra/blob/5962db3dbbcb44e63e8afdb20e9173f8f1ced802/src/ui/sections/TrollSection.cs#L126
+
+		if (!GameOptions().HasOptions() || *Game::pGameData == NULL) return;
+
+		GameOptions options;
+		if (options.GetGameMode() != GameModes__Enum::HideNSeek) return;
+
+		auto gameMgr = GameManager_get_Instance(NULL);
+		auto gameFlowHns = (LogicGameFlowHnS*)gameMgr->fields._LogicFlow_k__BackingField;
+
+		if (gameFlowHns == NULL) return;
+
+		auto tasks = GetNormalPlayerTasks(*Game::pLocalPlayer);
+		float hideTime = gameFlowHns->fields.currentHideTime;
+
+		if (IsHost()) {
+			State.rpcQueue.push(new RpcDrainHideTimer(hideTime));
+			return;
+		}
+
+		if (tasks.size() == 0) return; 
+
+		uint32_t targetTaskId = 0;
+		NormalPlayerTask_TaskLength__Enum targetTaskType = NormalPlayerTask_TaskLength__Enum::None;
+		for (auto task : tasks) {
+			// find the longest tasks for the shortest completion count
+			if (task->fields.Length <= targetTaskType) continue;
+
+			targetTaskId = task->fields._._Id_k__BackingField;
+			targetTaskType = task->fields.Length;
+			if (targetTaskType == NormalPlayerTask_TaskLength__Enum::Long) break;
+		}
+
+		// using the game's logic for common/short/long task time deductions instead of using them directly
+		float singleTaskTimeDeduction = 20.f - (float)GameData_get_PlayerCount(*Game::pGameData, NULL);
+		if (targetTaskType != NormalPlayerTask_TaskLength__Enum::Long) singleTaskTimeDeduction /= 2.f;
+
+		int completionCount = (int)ceil(hideTime / singleTaskTimeDeduction);
+
+		for (int i = 0; i < completionCount; ++i) {
+			State.taskRpcQueue.push(new RpcCompleteTask(targetTaskId));
+		}
+	}
+
 	void Render() {
-		if (IsInGame() && GetPlayerData(*Game::pLocalPlayer)->fields.Tasks != NULL) {
-			ImGui::SameLine(100 * State.dpiScale);
-			ImGui::BeginChild("###Tasks", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
-			ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
-			//if (!PlayerIsImpostor(GetPlayerData(*Game::pLocalPlayer))) {
+		bool inGameWithTasks = IsInGame() && GetPlayerData(*Game::pLocalPlayer)->fields.Tasks != NULL;
+		bool lobbyHost = IsInLobby() && IsHost();
+
+		if (!inGameWithTasks && !lobbyHost) return;
+
+		ImGui::SameLine(100 * State.dpiScale);
+		ImGui::BeginChild("###Tasks", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
+
+		if (inGameWithTasks) {
 			auto tasks = GetNormalPlayerTasks(*Game::pLocalPlayer);
 
-			bool allTasksComplete = false;
 			uint16_t tasksCompleted = 0;
 			for (auto task : tasks) {
 				if (task->fields.taskStep == task->fields.MaxStep)
 					++tasksCompleted;
 			}
 
+			auto gameMgr = GameManager_get_Instance(NULL);
+			auto gameFlowHns = (LogicGameFlowHnS*)gameMgr->fields._LogicFlow_k__BackingField;
+
+			if (GameOptions().HasOptions() && gameFlowHns != NULL && IsInGame() &&
+				(tasks.size() != 0 || (IsHost() && gameFlowHns->fields.currentHideTime > 0.f))) {
+				GameOptions options;
+
+				if (options.GetGameMode() == GameModes__Enum::HideNSeek && AnimatedButton("Drain Hide Timer")) {
+					DrainHideTimer();
+				}
+				ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
+			}
+
 			if (tasks.size() != tasksCompleted) {
 				if (AnimatedButton("Complete All Tasks")) {
 					CompleteAllTasks();
 				}
+				ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
 			}
-			if (!State.SafeMode) {
-				ImGui::SameLine();
-			}
+			if (!State.SafeMode) ImGui::SameLine();
 			if (!State.SafeMode && AnimatedButton("Complete Everyone's Tasks")) {
 				for (auto player : GetAllPlayerControl()) {
 					CompleteAllTasks(player);
 				}
+				ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
 			}
 
 			ImGui::NewLine();
@@ -56,24 +227,25 @@ namespace TasksTab {
 					, TranslateTaskTypes(task->fields._.TaskType));
 			}
 
-			ImGui::Dummy(ImVec2(7, 7) * State.dpiScale);
-			ImGui::Separator();
-			ImGui::Dummy(ImVec2(7, 7) * State.dpiScale);
-			//}
+			if (tasks.size() > 0) {
+				ImGui::Dummy(ImVec2(7, 7) * State.dpiScale);
+				ImGui::Separator();
+				ImGui::Dummy(ImVec2(7, 7) * State.dpiScale);
+			}
 
 			GameOptions options;
-			if (!options.GetBool(app::BoolOptionNames__Enum::VisualTasks) && ToggleButton("Bypass Visual Tasks Being Off", &State.BypassVisualTasks))
+			if (!options.GetBool(app::BoolOptionNames__Enum::VisualTasks, false) && ToggleButton("Bypass Visual Tasks Being Off", &State.BypassVisualTasks))
 				State.Save();
 
-			if (options.GetGameMode() == GameModes__Enum::Normal && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks)) {
+			if (!State.BypassVisualTasks && options.GetGameMode() == GameModes__Enum::Normal && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks, false)) {
 				ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Visual tasks are turned OFF in this lobby.");
 				ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Any animations (other than cameras) are client-sided only!");
 			}
-			else if (options.GetGameMode() == GameModes__Enum::HideNSeek)
+			else if (!State.BypassVisualTasks && options.GetGameMode() == GameModes__Enum::HideNSeek)
 				ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Animations other than cameras are client-sided only in Hide n Seek!");
 
 			if (State.mapType == Settings::MapType::Ship) {
-				if (!State.BypassVisualTasks && (options.GetGameMode() == GameModes__Enum::Normal && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks)) || options.GetGameMode() == GameModes__Enum::HideNSeek) {
+				if (!State.BypassVisualTasks && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks, false)) {
 					if (AnimatedButton("Play Shields Animation (Client-sided)"))
 					{
 						State.rpcQueue.push(new RpcPlayAnimation(1));
@@ -88,7 +260,7 @@ namespace TasksTab {
 			}
 
 			if (State.mapType == Settings::MapType::Ship) {
-				if (!State.BypassVisualTasks && (options.GetGameMode() == GameModes__Enum::Normal && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks)) || options.GetGameMode() == GameModes__Enum::HideNSeek) {
+				if (!State.BypassVisualTasks && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks, false)) {
 					if (AnimatedButton("Play Trash Animation (Client-sided)"))
 					{
 						State.rpcQueue.push(new RpcPlayAnimation(10));
@@ -104,7 +276,7 @@ namespace TasksTab {
 
 			if (State.mapType == Settings::MapType::Ship || State.mapType == Settings::MapType::Pb) {
 
-				if (!State.BypassVisualTasks && (options.GetGameMode() == GameModes__Enum::Normal && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks)) || options.GetGameMode() == GameModes__Enum::HideNSeek) {
+				if (!State.BypassVisualTasks && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks, false)) {
 					if (ToggleButton("Play Weapons Animation (Client-sided)", &State.PlayWeaponsAnimation))
 					{
 						State.Save();
@@ -118,7 +290,7 @@ namespace TasksTab {
 				}
 			}
 
-			if (!State.BypassVisualTasks && (options.GetGameMode() == GameModes__Enum::Normal && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks)) || options.GetGameMode() == GameModes__Enum::HideNSeek) {
+			if (!State.BypassVisualTasks && !options.GetBool(app::BoolOptionNames__Enum::VisualTasks, false)) {
 				if (ToggleButton("Play Medbay Scan Animation (Client-sided)", &State.PlayMedbayScan))
 				{
 					if (State.PlayMedbayScan)
@@ -145,17 +317,30 @@ namespace TasksTab {
 				}
 			}
 
-			if (!(State.mapType == Settings::MapType::Hq || State.mapType == Settings::MapType::Fungle) && ToggleButton("Fake Cameras In Use", &State.FakeCameraUsage))
-			{
+			if (!(State.mapType == Settings::MapType::Hq || State.mapType == Settings::MapType::Fungle) && ToggleButton("Fake Cameras In Use", &State.FakeCameraUsage)) {
 				State.rpcQueue.push(new RpcUpdateSystem(SystemTypes__Enum::Security, (State.FakeCameraUsage ? 1 : 0)));
 			}
 
 			if (IsInMultiplayerGame() && IsInGame()) {
-				float taskPercentage = (float)(*Game::pGameData)->fields.CompletedTasks / (float)(*Game::pGameData)->fields.TotalTasks;
+				float taskPercentage = (*Game::pGameData)->fields.TotalTasks == 0 ? 1.f : (float)(*Game::pGameData)->fields.CompletedTasks / (float)(*Game::pGameData)->fields.TotalTasks;
 				ImGui::TextColored(ImVec4(1.0f - taskPercentage, 1.0f, 1.0f - taskPercentage, 1.0f), "%.2f%% Total Tasks Completed", taskPercentage * 100);
 			}
-
-			ImGui::EndChild();
 		}
+
+		if (IsHost()) {
+			if (inGameWithTasks) {
+				ImGui::Dummy(ImVec2(7, 7) * State.dpiScale);
+				ImGui::Separator();
+				ImGui::Dummy(ImVec2(7, 7) * State.dpiScale);
+			}
+			RenderTaskEnforcer();
+
+			if (lobbyHost) {
+				ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
+				RenderDisableTasks();
+			}
+		}
+
+		ImGui::EndChild();
 	}
 }

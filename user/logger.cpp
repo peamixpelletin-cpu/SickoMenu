@@ -30,7 +30,10 @@ void SickoLogger::Write(std::string_view verbosity, std::string_view source, std
 	std::tm tm = {};
 	localtime_s(&tm, &t);  // Safe version of localtime
 	ss << std::put_time(&tm, "[%H:%M:%S]"); // Replace UTC time with local time*/ // Causes lag on lower-end devices
-	ss << std::format("[{:%EX}]", std::chrono::system_clock::now());
+	// ss << std::format("[{:%EX}]", std::chrono::system_clock::now());
+
+	ss << "[" << GetTimeString() << "]";
+
 	ss << "[" << verbosity << " - " << source << "] " << message << std::endl;
 	std::cout << ss.str();
 
@@ -69,4 +72,9 @@ void SickoLogger::Error(std::string_view message)
 void SickoLogger::Info(std::string_view message)
 {
 	Info("SICKO", message);
+}
+
+void SickoLogger::HookDebug(std::string_view message, bool write)
+{
+	Write("DEBUG", "SICKO", message, write);
 }

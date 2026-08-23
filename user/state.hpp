@@ -1,6 +1,7 @@
 #pragma once
 #include <set>
 #include <bitset>
+#include <map>
 #include <queue>
 #include <unordered_set>
 #include "_events.h"
@@ -446,6 +447,10 @@ public:
     SystemTypes__Enum selectedDoor = SystemTypes__Enum::Hallway;
     std::vector<SystemTypes__Enum> mapDoors;
     std::vector<SystemTypes__Enum> pinnedDoors;
+    std::vector<SystemTypes__Enum> softPinnedDoors;
+    std::map<uint8_t, std::chrono::steady_clock::time_point> doorOpenTimes;
+    std::map<SystemTypes__Enum, std::chrono::steady_clock::time_point> pinnedDoorLastCheck;
+    std::chrono::steady_clock::time_point lastPinnedDoorCloseCheck = std::chrono::steady_clock::now();
     bool CloseAllDoors = false;
 
     bool ShowConsole = false;

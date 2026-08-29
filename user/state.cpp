@@ -10,7 +10,7 @@
 Settings State;
 
 void Settings::Load() {
-    this->SickoVersion = "v5.0.1";
+    this->SickoVersion = "v5.0.3";
 
     auto path = getModulePath(hModule);
     auto configPath = path.parent_path() / "sicko-selected-config.json";
@@ -37,7 +37,6 @@ void Settings::Load() {
     }
 
     auto settingsPath = path.parent_path() / std::format("sicko-config/{}.json", this->selectedConfig);
-
     if (!std::filesystem::exists(settingsPath))
         return;
 
@@ -54,13 +53,12 @@ void Settings::Load() {
 
         JSON_TRYGET("HasOpenedMenuBefore", this->HasOpenedMenuBefore);
         JSON_TRYGET("ShowMenuOnStartup", this->ShowMenuOnStartup);
-        if (this->ShowMenuOnStartup) JSON_TRYGET("ShowMenu", this->ShowMenuOnStartup);
+        JSON_TRYGET("ShowMenuOnStartup", this->ShowMenu);
         JSON_TRYGET("KeyBinds", this->KeyBinds);
 #ifdef _DEBUG
         JSON_TRYGET("ShowDebug", this->showDebugTab);
 #endif
         JSON_TRYGET("dpiScale", this->dpiScale);
-        this->dpiChanged = true;
         JSON_TRYGET("RgbTheme", this->RgbMenuTheme);
         JSON_TRYGET("GradientTheme", this->GradientMenuTheme);
         JSON_TRYGET("MatchBackgroundWithTheme", this->MatchBackgroundWithTheme);

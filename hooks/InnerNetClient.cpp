@@ -411,7 +411,9 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method)
             }
 
             if (State.SnipeColor && (IsInGame() || IsInLobby())) {
-                if ((IsColorAvailable(State.SelectedColorId) || !State.SafeMode) && GetPlayerOutfit(GetPlayerData(*Game::pLocalPlayer))->fields.ColorId != State.SelectedColorId) {
+                auto outfit = GetPlayerOutfit(GetPlayerData(*Game::pLocalPlayer));
+                if ((IsColorAvailable(State.SelectedColorId) || !State.SafeMode) && outfit != NULL &&
+                    outfit->fields.ColorId != State.SelectedColorId) {
                     std::queue<RPCInterface*>* queue = nullptr;
                     if (IsInGame())
                         queue = &State.rpcQueue;
@@ -442,16 +444,11 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method)
                     auto outfit = GetPlayerOutfit(GetPlayerData(*Game::pLocalPlayer));
                     if (outfit != NULL) {
                         State.originalName = convert_from_string(outfit->fields.PlayerName);
-                        auto petId = outfit->fields.PetId;
-                        auto skinId = outfit->fields.SkinId;
-                        auto hatId = outfit->fields.HatId;
-                        auto visorId = outfit->fields.VisorId;
-                        auto namePlateId = outfit->fields.NamePlateId;
-                        State.originalPet = petId;
-                        State.originalSkin = skinId;
-                        State.originalHat = hatId;
-                        State.originalVisor = visorId;
-                        State.originalNamePlate = namePlateId;
+                        State.originalPet = outfit->fields.PetId;
+                        State.originalSkin = outfit->fields.SkinId;
+                        State.originalHat = outfit->fields.HatId;
+                        State.originalVisor = outfit->fields.VisorId;
+                        State.originalNamePlate = outfit->fields.NamePlateId;
                     }
                 }
 
@@ -892,7 +889,7 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method)
                                     LOG_DEBUG("Task Enforcer: kicking " + playerName + " (" + std::to_string(pct) + "% tasks)");
                                     InnerNetClient_KickPlayer((InnerNetClient*)(*Game::pAmongUsClient), pc->fields._.OwnerId, false, NULL);
                                     if (auto* notifier = (NotificationPopper*)Game::HudManager.GetInstance()->fields.Notifier) {
-                                        Sprite* spriteBackup = notifier->fields.playerDisconnectSprite;
+                                        auto* spriteBackup = new Sprite(*notifier->fields.playerDisconnectSprite);
                                         Color colorBackup = notifier->fields.disconnectColor;
                                         notifier->fields.playerDisconnectSprite = notifier->fields.settingsChangeSprite;
                                         notifier->fields.disconnectColor = Color(1.0f, 0.5f, 0.0f, 1.0f);
@@ -1391,6 +1388,7 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method)
                         State.phantoms_amount = (int)GetRoleCount(RoleType::Phantom);
                         State.vipers_amount = (int)GetRoleCount(RoleType::Viper);
                         State.impostors_amount = (int)GetRoleCount(RoleType::Impostor);
+                        State.crewmates_amount = (int)GetRoleCount(RoleType::Crewmate);
                         if (State.HostRoleToSet == RoleType::Impostor || State.HostRoleToSet == RoleType::Shapeshifter || State.HostRoleToSet == RoleType::Phantom || State.HostRoleToSet == RoleType::Viper) {
                             if (State.impostors_amount + State.shapeshifters_amount + State.phantoms_amount + State.vipers_amount >= GetMaxImpostorAmount((int)GetAllPlayerData().size())) {
                                 State.assignedRoles[index] = RoleType::Random;
@@ -1707,17 +1705,17 @@ void dAmongUsClient_OnPlayerLeft(AmongUsClient* __this, ClientData* data, Discon
             auto playerInfo = GetPlayerData(data->fields.Character);
 
             if (reason == DisconnectReasons__Enum::Banned)
-                Log.Debug(ToString(data->fields.Character) + " has been banned by host (" + GetHostUsername() + ").");
+                Log.Debug(convert_from_string(data->fields.PlayerName) + " has been banned by host (" + GetHostUsername() + ").");
             else if (reason == DisconnectReasons__Enum::Kicked)
-                Log.Debug(ToString(data->fields.Character) + " has been kicked by host (" + GetHostUsername() + ").");
+                Log.Debug(convert_from_string(data->fields.PlayerName) + " has been kicked by host (" + GetHostUsername() + ").");
             else if (reason == DisconnectReasons__Enum::Hacking)
-                Log.Debug(ToString(data->fields.Character) + " has been banned for hacking.");
+                Log.Debug(convert_from_string(data->fields.PlayerName) + " has been banned for hacking.");
             else if (reason == DisconnectReasons__Enum::Error)
-                Log.Debug(ToString(data->fields.Character) + " has been disconnected due to error.");
+                Log.Debug(convert_from_string(data->fields.PlayerName) + " has been disconnected due to error.");
             else if (reason == DisconnectReasons__Enum::Sanctions)
-                Log.Debug(ToString(data->fields.Character) + " has been sanction-banned.");
+                Log.Debug(convert_from_string(data->fields.PlayerName) + " has been sanction-banned.");
             else
-                Log.Debug(ToString(data->fields.Character) + " has left the game.");
+                Log.Debug(convert_from_string(data->fields.PlayerName) + " has left the game.");
 
             uint8_t playerId = data->fields.Character->fields.PlayerId;
 

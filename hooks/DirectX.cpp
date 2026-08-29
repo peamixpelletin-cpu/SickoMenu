@@ -398,8 +398,9 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
 
     if (CanDrawRadar())
     {
-            ImGuiRenderer::Submit([]() { Radar::Render(); });
+        ImGuiRenderer::Submit([]() { Radar::Render(); });
     }
+    else State.HoveringOverAnyWindowButRadar = ImGui::GetIO().WantCaptureMouse;
 
     if (CanDrawMapPlayers())
     {

@@ -13,8 +13,6 @@ RpcCloseDoorsOfType::RpcCloseDoorsOfType(SystemTypes__Enum selectedSystem, bool 
 
 void RpcCloseDoorsOfType::Process()
 {
-	if (selectedSystem == SystemTypes__Enum::Decontamination || selectedSystem == SystemTypes__Enum::Decontamination2 || selectedSystem == SystemTypes__Enum::Decontamination3)
-		return;
 	if (State.PanicMode || !Game::pShipStatus || !*Game::pShipStatus) return;
 	app::ShipStatus_RpcCloseDoorsOfType(*Game::pShipStatus, this->selectedSystem, NULL);
     if (this->pinDoor && std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), selectedSystem) == State.pinnedDoors.end()) {
@@ -30,8 +28,6 @@ RpcOpenDoorsOfType::RpcOpenDoorsOfType(SystemTypes__Enum selectedSystem)
 
 void RpcOpenDoorsOfType::Process()
 {
-	if (selectedSystem == SystemTypes__Enum::Decontamination || selectedSystem == SystemTypes__Enum::Decontamination2 || selectedSystem == SystemTypes__Enum::Decontamination3)
-		return;
     if (State.PanicMode || !Game::pShipStatus || !*Game::pShipStatus || !(*Game::pShipStatus)->fields.AllDoors) return;
     if (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), selectedSystem) != State.pinnedDoors.end()) return;
 	for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors))
@@ -39,7 +35,8 @@ void RpcOpenDoorsOfType::Process()
 		if (door && door->klass && door->fields.Room == selectedSystem)
 		{
 			app::ShipStatus_RpcUpdateSystem(*Game::pShipStatus, SystemTypes__Enum::Doors, (uint8_t)(door->fields.Id | 64), NULL);
-			if ("PlainDoor"sv == door->klass->name) app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), true, {});
+			if ("PlainDoor"sv == door->klass->name || (door->klass->parent && "PlainDoor"sv == door->klass->parent->name))
+                app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), true, {});
 			else if ("MushroomWallDoor"sv == door->klass->name) app::MushroomWallDoor_SetDoorway(reinterpret_cast<MushroomWallDoor*>(door), true, {});
 		}
 	}

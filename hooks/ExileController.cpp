@@ -17,13 +17,16 @@ void dExileController_ReEnableGameplay(ExileController* __this, MethodInfo* meth
                 player.has_value() && !player.is_LocalPlayer() && !player.is_Disconnected()) {
                 if (auto role = player.get_PlayerData()->fields.Role;
                     role != nullptr && role->fields.CanUseKillButton && !player.get_PlayerData()->fields.IsDead) {
-                    pc->fields.killTimer = (std::max)(GameOptions().GetKillCooldown(), 0.f);;
+                    pc->fields.killTimer = (std::max)(GameOptions().GetKillCooldown(), 0.f);
                     //STREAM_DEBUG("Player " << ToString(pc) << " KillTimer " << pc->fields.killTimer);
                 }
             }
         }
-        if (State.GodMode && ((IsHost() && IsInGame()) || !State.SafeMode)) {
+        if (!State.PanicMode && State.GodMode && ((IsHost() && IsInGame()) || !State.SafeMode)) {
             PlayerControl_RpcProtectPlayer(*Game::pLocalPlayer, *Game::pLocalPlayer, GetPlayerOutfit(GetPlayerData(*Game::pLocalPlayer))->fields.ColorId, NULL);
+        }
+        if (!State.PanicMode && State.ControlPet) {
+            State.petPos = PlayerControl_GetTruePosition(*Game::pLocalPlayer, NULL);
         }
     }
     catch (...) {

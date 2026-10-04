@@ -1,7 +1,7 @@
 #pragma once
 #include <set>
-#include <bitset>
 #include <map>
+#include <bitset>
 #include <queue>
 #include <unordered_set>
 #include "_events.h"
@@ -77,6 +77,12 @@ public:
     int FakePlatform = 0;
     uint64_t FakePsnId = 0;
     uint64_t FakeXboxId = 0;
+    bool SpoofPlName = false;
+    std::string FakePlName = "TESTNAME";
+    bool UseCustomServer = false;
+    std::string CustomServerIp = "";
+    uint16_t CustomServerPort = 22023;
+    bool ForceDTLS = false;
     bool SpoofGuestAccount = false;
     bool SpoofModdedHost = false;
     bool SpoofAUVersion = false;
@@ -86,6 +92,11 @@ public:
     bool ShowUiBorders = true;
     float AnimationSpeed = 1.f;
     float RoundingRadiusMultiplier = 1.f;
+
+    bool ToastsOnTop = false;
+    int ToastPositionX = 0; // for alignment; 0: left, 1: middle, 2: right
+    int MaxToasts = 6;
+    float ToastMaxDuration = 5.f;
 
     bool AdjustByDPI = true;
     float dpiScale = 1.f;
@@ -119,6 +130,7 @@ public:
     bool PauseVentBlockingWhileVenting = false;
     bool SpamReport = false;
     bool CrashSpamReport = false;
+    bool RandomSpawns = false;
     bool Overflow = false;
     bool DisableMeetings = false;
     bool DisableSabotages = false;
@@ -140,6 +152,13 @@ public:
     int ChatSpamMode = 0;
     int CrashChatSpamMode = 1;
     bool AutoJoinLobby = false;
+    bool AutoRejoinOnKick = false;
+    std::string PendingRejoinTargetFC = "";
+    bool PendingRejoinReady = false;
+    std::unordered_map<int32_t, int> VotekickRejoinCount;
+    bool VotekickRejoinPending = false;
+    float VotekickRejoinDelay = 0.f;
+    std::string VotekickRejoinLobbyCode = "";
     std::string AutoJoinLobbyCode = "";
     bool JoinLobby = false;
     std::string JoinLobbyCode = "";
@@ -209,6 +228,7 @@ public:
         float ViperDissolveTime = 3.f;
         float DetectiveSuspectLimit = 3.f;
         float JudgeTaskRequirement = 50.f;
+        float InfluencerMessageCooldown = 50.f;
     };
     std::vector<HostPreset> HostPresets;
     int SelectedHostPreset = 0;
@@ -353,11 +373,15 @@ public:
     bool PreventSelfReport = true;
     bool AutoRejoin = false;
     bool DisableShushAnimation = false;
+    bool ControlPet = false;
+    bool ControlHand = false;
+    bool DisableControlPetHand = false;
     bool OldStylePingText = false;
     bool NoSeekerAnim = false;
     bool BetterChatNotifications = false;
     bool BetterLobbyCodeInput = false;
     bool BetterMessageSounds = false;
+    bool ExtendedNotifications = false;
     AudioClip* MessageSound = NULL;
 
     PlayerSelection selectedPlayer;
@@ -379,9 +403,15 @@ public:
     bool RadarBorder = false;
     int RadarExtraWidth = 0;
     int RadarExtraHeight = 0;
+    bool HoveringOverAnyWindowButRadar = false;
 
     bool ShowEsp = false;
-    bool ShowEsp_Ghosts = true;
+    bool ShowEsp_Players = true;
+    bool ShowEsp_Ghosts = false;
+    bool ShowEsp_DeadBodies = false;
+    bool ShowEsp_LineTextShadows = false;
+    float ShowEsp_LineThickness = 3.f;
+    float ShowEsp_TextSize = 1.5f;
     bool ShowEsp_Box = true;
     bool ShowEsp_Tracers = true;
     bool ShowEsp_Distance = true;
@@ -400,6 +430,7 @@ public:
     bool ChatActiveOriginalState = false;
     bool ReadGhostMessages = false;
     bool ReadAndSendSickoChat = false;
+    bool MoveMatchInfoGuide = false;
     bool ShiftRightClickTP = false;
     bool TeleportEveryone = false;
     bool RotateEveryone = false;
@@ -416,8 +447,11 @@ public:
     bool SpamVentTpEveryone = false;
     bool SpamVentTpEveryoneRandom = false;
     bool IgnoreVentTpSelf = false;
+    bool SpamZiplineEveryone = false;
+    bool IgnoreZiplineSelf = false;
     int SelectedVentId = 0;
     std::vector<Game::PlayerId> spamRandomVentTpPlayers = {};
+    std::vector<Game::PlayerId> spamZiplinePlayers = {};
     std::map<Game::PlayerId, int> spamVentTpPlayers = {};
     float RotateRadius = 1.f;
     float xCoordinate = 0.f;
@@ -429,6 +463,17 @@ public:
     bool confuseOnKill = false;
     bool confuseOnVent = false;
     bool confuseOnMeeting = false;
+
+    bool AntiExploit_DisconnectPenalties = true;
+    bool AntiExploit_UnauthorizedSabotages = true;
+    bool AntiExploit_UnauthorizedTeleports = true;
+    bool AntiExploit_UnauthorizedZiplines = true;
+    bool AntiExploit_AttemptToBan = true;
+    bool AntiExploit_VotekicksAgainstSelfHost = true;
+    bool AntiExploit_CrashLobbyHost = true;
+
+    bool AntiExploit_IsTeleportingSelf = false; // flag for when we vent TP ourselves
+    bool AntiExploit_IsClimbingZipline = false; // flag for when we climb a zipline
 
     bool InfiniteMeetings = false;
     bool NoLadderZiplineCooldown = false;
@@ -442,20 +487,22 @@ public:
     bool Judge_NoTaskRequirement = false;
     bool Judge_InfiniteOverrules = false;
     bool GuardianAngel_NoProtectCooldown = false;
+    bool Influencer_NoRefreshCooldown = false;
     bool Impostor_NoKillCooldown = false;
     bool Shapeshifter_InfiniteShapeshiftDuration = false;
 
-    SystemTypes__Enum selectedDoor = SystemTypes__Enum::Hallway;
+    std::vector<SystemTypes__Enum> selectedDoors;
     std::vector<SystemTypes__Enum> mapDoors;
     std::vector<SystemTypes__Enum> pinnedDoors;
     std::vector<SystemTypes__Enum> softPinnedDoors;
     std::map<uint8_t, std::chrono::steady_clock::time_point> doorOpenTimes;
     std::map<SystemTypes__Enum, std::chrono::steady_clock::time_point> pinnedDoorLastCheck;
-    std::chrono::steady_clock::time_point lastPinnedDoorCloseCheck = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point lastPinnedDoorCloseCheck{};
     bool CloseAllDoors = false;
 
     bool ShowConsole = false;
     bool ShowReplay = false;
+    bool ShowConsoleEventsAsToasts = false;
     bool Replay_ShowOnlyLastSeconds = false;
     int Replay_LastSecondsValue = 1;
     bool Replay_ClearAfterMeeting = false;
@@ -481,6 +528,7 @@ public:
     //std::vector<Game::PlayerId> sickoUsers;
     std::vector<Game::PlayerId> vanishedPlayers;
     std::vector<Game::PlayerId> validDeadBodyIds;
+    std::vector<Game::PlayerId> checkedPlayerIds;
     std::map<Game::PlayerId, int> ventTpSeqIds;
     std::map<Game::PlayerId, std::vector<std::string>> modUsers;
     int32_t rpcCooldown = 15;
@@ -541,20 +589,21 @@ public:
     ImVec4 GameTextColor = ImVec4(0.f, 0.f, 0.f, 1.f);
     ImVec4 GameBgColor = ImVec4(1.f, 1.f, 1.f, 1.f);
 
-    ImVec4 CrewmateGhostColor = ImVec4(1.f, 1.f, 1.f, 0.5f);
-    ImVec4 CrewmateColor = ImVec4(0.f, 1.f, 1.f, 1.f);
-    ImVec4 EngineerColor = ImVec4(0.f, 0.5f, 1.f, 1.f);
-    ImVec4 GuardianAngelColor = ImVec4(0.5f, 0.5f, 0.5f, 0.5f);
-    ImVec4 ScientistColor = ImVec4(0.2f, 0.2f, 1.f, 1.f);
-    ImVec4 ImpostorColor = ImVec4(1.f, 0.1f, 0.1f, 1.f);
-    ImVec4 ShapeshifterColor = ImVec4(1.f, 0.67f, 0.f, 1.f);
-    ImVec4 ImpostorGhostColor = ImVec4(0.25f, 0.25f, 0.25f, 0.5f);
-    ImVec4 NoisemakerColor = ImVec4(0.f, 1.f, 0.47f, 1.f);
-    ImVec4 TrackerColor = ImVec4(0.65f, 0.36f, 1.f, 1.f);
-    ImVec4 PhantomColor = ImVec4(0.53f, 0.f, 0.f, 1.f);
-    ImVec4 DetectiveColor = ImVec4(0.39f, 0.735f, 1.f, 1.f);
-    ImVec4 ViperColor = ImVec4(1.f, 1.f, 0.f, 1.f);
-    ImVec4 JudgeColor = ImVec4(0.f, 0.6f, 0.345f, 1.f);
+    ImVec4 CrewmateGhostColor = ImVec4(0.482f, 0.741f, 0.580f, 0.5f);
+    ImVec4 CrewmateColor = ImVec4(0.071f, 0.984f, 0.996f, 1.f);
+    ImVec4 EngineerColor = ImVec4(0.043f, 0.506f, 0.780f, 1.f);
+    ImVec4 GuardianAngelColor = ImVec4(0.129f, 0.737f, 0.988f, 0.5f);
+    ImVec4 ScientistColor = ImVec4(0.318f, 0.067f, 0.835f, 1.f);
+    ImVec4 ImpostorColor = ImVec4(0.898f, 0.118f, 0.267f, 1.f);
+    ImVec4 ShapeshifterColor = ImVec4(0.839f, 0.60f, 0.227f, 1.f);
+    ImVec4 ImpostorGhostColor = ImVec4(0.671f, 0.384f, 0.553f, 0.5f);
+    ImVec4 NoisemakerColor = ImVec4(0.212f, 0.898f, 0.180f, 1.f);
+    ImVec4 TrackerColor = ImVec4(0.737f, 0.235f, 0.863f, 1.f);
+    ImVec4 PhantomColor = ImVec4(0.443f, 0.235f, 0.075f, 1.f);
+    ImVec4 DetectiveColor = ImVec4(0.718f, 0.678f, 0.980f, 1.f);
+    ImVec4 ViperColor = ImVec4(1.0f, 0.937f, 0.455f, 1.f);
+    ImVec4 JudgeColor = ImVec4(0.0f, 0.588f, 0.204f, 1.f);
+    ImVec4 InfluencerColor = ImVec4(0.486f, 0.f, 0.596f, 0.5f);
 
     ImVec4 HostColor = ImVec4(1.f, 0.73f, 0.f, 1.f);
     ImVec4 PlayerIdColor = ImVec4(1.f, 0.f, 0.f, 1.f);
@@ -597,6 +646,7 @@ public:
 
     Vector3 camPos = { NULL, NULL, NULL };
     Vector3 prevCamPos = { NULL, NULL, NULL };
+    Vector2 petPos = { NULL, NULL };
 
     bool FlipSkeld = false;
     bool CustomImpostorAmount = false;
@@ -618,8 +668,8 @@ public:
     bool MessageSent = false;
     bool ChatFocused = false;
     bool IsRevived = false;
-    bool IsAdminMapOpen = false;
     bool IsNormalMapOpen = false;
+    bool IsAdminMapOpen = false;
 
     std::string chatMessage = "";
     std::string userName = "";
@@ -691,6 +741,7 @@ public:
     };
 
     bool CanChangeOutfit = false;
+    bool HasSpawnedIn = false;
     float OverflowTimer = 0.f;
     std::string OverflowCachedNamePlate = "";
     bool MainMenuLoaded = false;
@@ -718,6 +769,8 @@ public:
     bool AutoHostRole = false;
     RoleType HostRoleToSet = RoleType::Impostor;
 
+    bool AllowPreferredColor = false;
+
     bool murderLoop = false;
     bool suicideLoop = false;
     bool farmLoop = false;
@@ -738,6 +791,8 @@ public:
     bool Enable_SMAC = false;
     int SMAC_Punishment = 0;
     int SMAC_HostPunishment = 0;
+    std::unordered_map<std::string, int> SMAC_ReasonPunishmentOverride;
+    std::unordered_map<std::string, int> SMAC_ReasonPunishmentOverrideHost;
     bool SMAC_AddToBlacklist = false;
     bool SMAC_IgnoreWhitelist = false;
     bool SMAC_PunishBlacklist = false;
@@ -765,20 +820,27 @@ public:
     int SMAC_LowLevel = 0;
     std::vector<uint8_t> SMAC_AttemptBanLobby = {};
     bool SMAC_CheckBadWords = true;
-    std::vector<std::string> SMAC_BadWords = {};
+    std::vector<std::pair<std::string, bool>> SMAC_BadWords = {}; 
     bool SMAC_CheckFriendcode = true;
+    bool SMAC_CheckPlatformSpoof = true;
     bool SMAC_CheckStartWords = false;
-    bool SMAC_StartWordsStrict = true;
     int SMAC_StartWordsThreshold = 1;
-    std::vector<std::string> SMAC_StartWords = {};
+    std::vector<std::pair<std::string, bool>> SMAC_StartWords = {}; 
     std::map<uint8_t, int> SMAC_StartWordsCount;
 
-    std::vector<std::string> ChatPresets = {};
+    struct ChatPreset {
+        std::string Name = "Preset";
+        std::vector<std::string> Messages = { "" }; 
+    };
+    std::vector<ChatPreset> ChatPresets = {};
+    int SelectedChatPreset = 0;
 
     std::vector<std::string> WhitelistFriendCodes = {};
     std::vector<std::string> BlacklistFriendCodes = {};
 
     std::vector<std::string> LockedNames = {};
+
+    std::unordered_set<uint8_t> SMAC_PunishedPlayers;
 
     std::string lol = "";
     bool ProGamer = false;
@@ -913,6 +975,8 @@ public:
     {"Playstation (Console)", true},
     {"Unknown", true}
     };
+
+    bool IgnoreOriginalInit_NotificationPopper = true;
 
     void Load();
     void Save();

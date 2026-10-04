@@ -1,6 +1,8 @@
 #include "pch-il2cpp.h"
 #include "_hooks.h"
 #include "state.hpp"
+#include "toasts.hpp"
+#include "console.hpp"
 #include "logger.h"
 #include <memory>
 
@@ -39,11 +41,23 @@ void dVent_EnterVent(Vent* __this, PlayerControl* pc, MethodInfo * method) {
 		auto ventVector = app::Transform_get_position(app::Component_get_transform((Component_1*)__this, NULL), NULL);
 		app::Vector2 ventVector2D = { ventVector.x, ventVector.y };
 		synchronized(Replay::replayEventMutex) {
-			State.liveReplayEvents.emplace_back(std::make_unique<VentEvent>(GetEventPlayerControl(pc).value(), ventVector2D, VENT_ACTIONS::VENT_ENTER));
-			State.liveConsoleEvents.emplace_back(std::make_unique<VentEvent>(GetEventPlayerControl(pc).value(), ventVector2D, VENT_ACTIONS::VENT_ENTER));
+			auto source = GetEventPlayerControl(pc).value();
+			State.liveReplayEvents.emplace_back(std::make_unique<VentEvent>(source, ventVector2D, VENT_ACTIONS::VENT_ENTER));
+			State.liveConsoleEvents.emplace_back(std::make_unique<VentEvent>(source, ventVector2D, VENT_ACTIONS::VENT_ENTER));
+
+			if (State.ShowConsoleEventsAsToasts &&
+				ConsoleGui::IsEventFiltered(EVENT_TYPES::EVENT_VENT) &&
+				ConsoleGui::IsPlayerFiltered(pc->fields.PlayerId)) {
+				std::string toastContent = std::format("{} ({}) vented in {}!",
+					source.playerName, GetColorName(source.colorId),
+					TranslateSystemTypes(GetSystemTypes(ventVector2D)));
+				Toasts::AddToast("Player Vented", toastContent, ImVec4(0.f, 1.f, 0.f, 1.f));
+			}
 		}
-		if (State.confuser && State.confuseOnVent && pc == *Game::pLocalPlayer)
+		if (State.confuser && State.confuseOnVent && pc == *Game::pLocalPlayer) {
 			ControlAppearance(true);
+			Toasts::AddToast("Confuser", "Randomized your outfit as you entered a vent!", ImVec4(0.f, 1.f, 1.f, 1.f));
+		}
 	}
 	Vent_EnterVent(__this, pc, method);
 }
@@ -54,8 +68,18 @@ void* dVent_ExitVent(Vent* __this, PlayerControl* pc, MethodInfo* method) {
 		auto ventVector = app::Transform_get_position(app::Component_get_transform((Component_1*)__this, NULL), NULL);
 		app::Vector2 ventVector2D = { ventVector.x, ventVector.y };
 		synchronized(Replay::replayEventMutex) {
-			State.liveReplayEvents.emplace_back(std::make_unique<VentEvent>(GetEventPlayerControl(pc).value(), ventVector2D, VENT_ACTIONS::VENT_EXIT));
-			State.liveConsoleEvents.emplace_back(std::make_unique<VentEvent>(GetEventPlayerControl(pc).value(), ventVector2D, VENT_ACTIONS::VENT_EXIT));
+			auto source = GetEventPlayerControl(pc).value();
+			State.liveReplayEvents.emplace_back(std::make_unique<VentEvent>(source, ventVector2D, VENT_ACTIONS::VENT_EXIT));
+			State.liveConsoleEvents.emplace_back(std::make_unique<VentEvent>(source, ventVector2D, VENT_ACTIONS::VENT_EXIT));
+
+			if (State.ShowConsoleEventsAsToasts &&
+				ConsoleGui::IsEventFiltered(EVENT_TYPES::EVENT_VENT) &&
+				ConsoleGui::IsPlayerFiltered(pc->fields.PlayerId)) {
+				std::string toastContent = std::format("{} ({}) vented out in {}!",
+					source.playerName, GetColorName(source.colorId),
+					TranslateSystemTypes(GetSystemTypes(ventVector2D)));
+				Toasts::AddToast("Player Exited Vent", toastContent, ImVec4(1.f, 0.f, 0.f, 1.f));
+			}
 		}
 	}
 
@@ -77,8 +101,32 @@ bool dVent_TryMoveToVent(Vent* __this, Vent* otherVent, String** error, MethodIn
 }
 
 void dVentilationSystem_Update(VentilationSystem_Operation__Enum op, int32_t ventId, MethodInfo* method) {
+	if (State.ShowHookLogs) Log.HookDebug("Hook dVentilationSystem_Update executed", false);
 	if (!State.PanicMode && State.KillImmunity && op == VentilationSystem_Operation__Enum::Exit) return;
 	VentilationSystem_Update(op, ventId, method);
 	/*if (State.FlipSkeld && IsHost() && op == VentilationSystem_Operation__Enum::Exit && *Game::pLocalPlayer != NULL)
 		(*Game::pLocalPlayer)->fields.inVent = false;*/ // Fix venting on Dleks
+}
+
+void dVentilationSystem_UpdateSystem(VentilationSystem* __this, PlayerControl* player, MessageReader* msgReader, MethodInfo* method) {
+	if (State.ShowHookLogs) Log.HookDebug("Hook dVentilationSystem_UpdateSystem executed", false);
+
+	if (!IsHost()) {
+		int32_t pos = msgReader->fields._position, head = msgReader->fields.readHead;
+
+		MessageReader_ReadUInt16(msgReader, NULL); // handle operation ID
+		auto ventOp = (VentilationSystem_Operation__Enum)MessageReader_ReadByte(msgReader, NULL);
+
+		msgReader->fields._position = pos;
+		msgReader->fields.readHead = head;
+
+		if (!State.PanicMode && State.AntiExploit_AttemptToBan && ventOp == VentilationSystem_Operation__Enum::BootImpostors) {
+			std::string killNotif = std::format("{} attempted to ban you, but failed!",
+				convert_from_string(GetPlayerOutfit(GetPlayerData(player))->fields.PlayerName));
+			
+			Toasts::AddToast("Anti-Exploit", killNotif, ImVec4(1.f, 0.f, 0.f, 1.f));
+		}
+		if (!State.PanicMode && State.AntiExploit_UnauthorizedSabotages) return;
+	}
+	VentilationSystem_UpdateSystem(__this, player, msgReader, method);
 }

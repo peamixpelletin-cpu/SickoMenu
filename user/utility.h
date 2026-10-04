@@ -44,7 +44,7 @@ enum class RoleType {
 	Viper = 11
 };
 
-struct RoleColor {
+struct ColorMapping {
 	const char* name;
 	ImVec4 color;
 };
@@ -72,6 +72,8 @@ public:
 	int JudgeChance = 0;
 	int GuardianAngelCount = 0;
 	int GuardianAngelChance = 0;
+	int SpiritGuideCount = 0;
+	int SpiritGuideChance = 0;
 	int MaxCrewmates = Game::MAX_PLAYERS;
 	RoleRates(const class GameOptions& gameOptions, int playerAmount);
 	int GetRoleCount(RoleTypes__Enum role);
@@ -247,6 +249,7 @@ il2cpp::Array<Camera__Array> GetAllCameras();
 il2cpp::List<List_1_InnerNet_ClientData_> GetAllClients();
 Vector2 GetSpawnLocation(Game::PlayerId playerId, int numPlayer, bool initialSpawn);
 void GeneratePlatformId();
+std::string GetDisconnectReasonString(DisconnectReasons__Enum reason);
 bool IsAirshipSpawnLocation(const Vector2& vec);
 Vector2 Rotate(const Vector2& vec, float degrees);
 bool Equals(const Vector2& vec1, const Vector2& vec2);
@@ -296,6 +299,7 @@ std::string GetCustomName(std::string name, bool forceUnique = false, uint8_t id
 std::vector<std::string> GetAllConfigs();
 bool CheckConfigExists(std::string configName);
 void UpdatePoints(NetworkedPlayerInfo* playerData, float points);
+std::string GetColorName(int32_t colorId);
 void SMAC_OnCheatDetected(PlayerControl* pCtrl, std::string reason);
 std::string strToLower(std::string str);
 bool IsRandomAUName(const std::string& name);

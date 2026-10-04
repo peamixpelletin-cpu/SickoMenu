@@ -53,9 +53,11 @@ namespace Menu {
 			{"Unlock Cosmetics", "General"}, {"Unlock All Achievements", "General"}, {"Allow other mod users to see you're using SickoMenu", "General"}, 
 			{"Spoof Guest Account (Quick Chat ONLY)", "Spoofing"}, {"Use Custom Friend Code (For New/Guest Account ONLY)", "Spoofing"}, {"Spoof Level", "Spoofing"},
 			{"Spoof Platform", "Spoofing"}, {"Spoof PSN Platform ID", "Spoofing"},
+			{"Spoof Platform Name", "Spoofing"}, {"Custom Server Settings", "Spoofing"}, {"Force DTLS", "Spoofing"},
 			{"Spoof Xbox Platform ID", "Spoofing"}, {"Reduce Anticheat While Hosting (+25 Mode)", "Spoofing"},
-			{"Hide Watermark", "Customization"}, {"Hide Mod Stamp", "Customization"}, {"Menu Theme Color", "Customization"},
-			{"Gradient Theme", "Customization"}, {"Gradient Theme", "Customization"}, {"Match Background with Theme", "Customization"},
+			{"Hide Watermark", "Customization"}, {"Hide Mod Stamp", "Customization"},
+			{"Menu Theme Color", "Customization"}, {"Gradient Theme", "Customization"},
+			{"Gradient Theme", "Customization"}, {"Match Background with Theme", "Customization"},
 			{"RGB Menu Theme", "Customization"}, {"Reset Menu Theme", "Customization"},
 			{"Opacity", "Customization"}, {"Dark Game Theme", "Customization"},
 			{"Custom Game Theme", "Customization"}, {"Change Chat Font", "Customization"},
@@ -63,6 +65,7 @@ namespace Menu {
 			{"Light Mode", "Customization"}, {"Show UI Borders", "Customization"},
 			{"Menu Scale", "Customization"}, {"Disable Animations", "Customization"},
 			{"Animation Speed", "Customization"}, {"Rounding Radius Multiplier", "Customization"},
+			{"Toast Notification Alignment", "Customization"}, {"Max Toasts to Show at Once", "Customization"},
 			{"Role Colors", "Customization"}, {"Other Colors", "Customization"},
 			{"Show/Hide Menu", "Keybinds"}, {"Show/Hide Console", "Keybinds"},
 			{"Show/Hide Radar", "Keybinds"}, {"Show/Hide Replay", "Keybinds"},
@@ -81,13 +84,16 @@ namespace Menu {
 			{"Set Color", "General"}, {"Snipe Color", "General"}, {"Console", "General"},
 			{"Reset Appearance", "General"}, {"Kill Everyone", "General"}, {"Protect Everyone", "General"},
 			{"Disable Venting", "General"}, {"Pause Vent Blocking While Venting", "General"},
-			{"Spam Report", "General"}, {"Teleport All to Vent", "General"},
+			{"Spam Report", "General"}, {"Teleport All to Vent", "General"}, {"Teleport All to Random Vents", "General"},
+			{"Make All Climb Zipline (Bottom to Top)", "General"}, {"Make All Climb Zipline (Top to Bottom)", "General"},
+			{"Spam Climb Zipline for Everyone", "General"}, {"Ignore Self (Vent TP)", "General"}, {"Ignore Self (Zipline)", "General"},
 			{"Spam TP All to Vent", "General"}, {"Spam TP All to Random Vents", "General"},
 			{"Attempt to Ban Everyone", "General"}, {"Kill All Crewmates", "General"},
 			{"Kill All Impostors", "General"}, {"Kick Everyone From Vents", "General"},
 			{"End Meeting", "General"},
 			{"Chat Message", "Chat"}, {"Send", "Chat"}, {"Send SickoChat", "Chat"}, {"Spam", "Chat"},
-			{"Chat Presets", "Chat"}, {"Ignore Whitelisted Players [Ban/Kick]", "Utils"}, {"Attempt to Crash", "Utils"},
+			{"Chat Presets", "Chat"}, {"Ignore Whitelisted Players [Ban/Kick]", "Utils"},
+			{"Attempt to Crash Lobby", "Utils"}, {"Make Players Spawn at Random Vents", "Utils"},
 			{"Enable Anticheat (SMAC)", "Anticheat"},
 			{"Whitelist", "Anticheat"}, {"Blacklist", "Anticheat"},
 			{"Remove Lobby", "Utils"}, {"Remove Map", "Utils"},
@@ -102,10 +108,11 @@ namespace Menu {
 		}},
 		{"Self", {
 			{"Max Vision", "Visuals"}, {"Wallhack", "Visuals"}, {"Disable HUD", "Visuals"}, {"Freecam", "Visuals"},
-			{"Zoom", "Visuals"}, 
+			{"Zoom", "Visuals"},
 			{"Scroll to Zoom / Shift + Scroll to Change Freecam Speed", "Visuals"}, {"Smooth Zoom", "Visuals"}, {"Show Shadows While Zoomed", "Visuals"},
 			{"Always show Chat Button", "Visuals"}, {"Allow Ctrl+(C/V) in Chat", "Visuals"},
-			{"Read Messages by Ghosts", "Visuals"}, {"Read and Send SickoChat", "Visuals"}, {"Custom Name", "Visuals"},
+			{"Read Messages by Ghosts", "Visuals"}, {"Read and Send SickoChat", "Visuals"},
+			{"Move Match Info Guide HUD Button", "Visuals"}, {"Custom Name", "Visuals"},
 			{"Custom Name for Everyone", "Visuals"}, {"Reveal Roles", "Visuals"},
 			{"Localize Role Names", "Visuals"}, {"Abbreviate Role Names", "Visuals"},
 			{"Player Colored Dots Next To Names", "Visuals"}, {"Show Player Info in Lobby", "Visuals"},
@@ -115,12 +122,13 @@ namespace Menu {
 			{"See Players In Vents", "Visuals"}, {"See Protections", "Visuals"}, {"See Kill Cooldown", "Visuals"},
 			{"Disable Kill Animation", "Visuals"}, {"Disable Lobby Music", "Visuals"},
 			{"Old Ping Text", "Visuals"}, {"Show Host", "Visuals"},
-			{"Show Vote Kicks", "Visuals"}, {"Show Chat Cooldown", "Visuals"}, {"Extend Chat Character Limit", "Visuals"}, {"Move in Meeting", "Visuals"},
+			{"Show Vote Kicks", "Visuals"}, {"Show Chat Cooldown", "Visuals"}, {"Extend Chat Character Limit", "Visuals"}, {"Exit Meeting", "Visuals"},
 			{"Unlock Vents", "Utils"}, {"Move While in Vent & Shapeshifting", "Utils"}, {"Always Move", "Utils"},
 			{"Make Role Abilities Bypass Comms Sabotages", "Utils"},
 			{"Copy Lobby Code on Disconnect", "Utils"}, {"NoClip", "Utils"},
-			{"No Seeker Animation", "Utils"}, {"Better Chat Notifications", "Utils"}, {"Better Lobby Code Input", "Utils"},
-			{"Better Message Sounds", "Utils"}, {"Auto Rejoin After Game Ending", "Utils"}, {"Disable Shush Animation", "Utils"},
+			{"No Seeker Animation", "Utils"}, {"Better Chat Notifications", "Utils"}, {"Better Lobby Code Input", "Utils"}, {"Extended Notifications", "Utils"},
+			{"Better Message Sounds", "Utils"}, {"Auto Rejoin After Game Ending", "Utils"},
+			{"Disable Shush Animation", "Utils"}, {"Control Pet", "Utils"},
 			{"Autokill", "Utils"}, {"Report Body on Murder", "Utils"}, {"Prevent Self-Report", "Utils"},
 			{"Fake Alive", "Utils"}, {"God Mode", "Utils"}, {"Teleport", "Utils"}, {"Rotate Everyone", "Utils"},
 			{"Select Role", "Utils"}, {"Set Role", "Utils"}, {"Set Fake Role", "Utils"}, {"Automatically Set Fake Role", "Utils"},
@@ -129,17 +137,20 @@ namespace Menu {
 			{"No Vitals Cooldown", "Roles"}, {"Infinite Battery", "Roles"},
 			{"No Tracking Cooldown", "Roles"}, {"Infinite Tracking", "Roles"},
 			{"No Interrogate Cooldown", "Roles"}, {"No Task Requirement", "Roles"},
-			{"No Protect Cooldown", "Roles"}, {"No Kill Cooldown", "Roles"},
+			{"No Protect Cooldown", "Roles"}, {"No Refresh Cooldown", "Roles"}, {"No Kill Cooldown", "Roles"},
 			{"Kill Other Impostors", "Roles"}, {"Kill Reach", "Roles"},
 			{"Do Tasks as Impostor", "Roles"}, {"No Shapeshift Animation", "Roles"}, {"Infinite Shapeshift Duration", "Roles"},
 			{"Cycler", "Randomizers"}, {"Cycle in Meeting", "Randomizers"},
 			{"Cycle Between Players", "Randomizers"}, {"Cycle for Everyone", "Randomizers"},
 			{"Confuser (Randomize Appearance at Will)", "Randomizers"},
-			{"Cosmetic Presets", "Randomizers"},
+			{"Cosmetic Presets", "Randomizers"}, {"No Disconnect Penalties", "Anti-Exploit"},
+			{"Resist Targeted Sabotages (Non-Host)", "Anti-Exploit"}, {"Resist Unauthorized Teleports", "Anti-Exploit"},
+			{"Resist Unauthorized Ziplines", "Anti-Exploit"}, {"Resist Attempt to Ban", "Anti-Exploit"},
+			{"Resist Votekicks Against Self", "Anti-Exploit"}, {"Prevent Attempt to Crash Lobby", "Anti-Exploit"},
 			{"Text Editor", "Text Editor"}
 		}},
 		{"Radar", {
-			{"Show Radar", ""}, {"Show Others in Map", ""}, {"Show Dead Bodies", ""}, {"Show Ghosts", ""},
+			{"Show Others in Map", ""}, {"Show Radar", ""}, {"Show Dead Bodies", ""}, {"Show Ghosts", ""},
 			{"Right Click to Teleport", ""}, {"(Shift + Left Click) to Close Room Door", ""},
 			{"Hide Radar During Meetings", ""}, {"Draw Player Icons", ""}, {"Lock Radar Position", ""}, {"Show Border", ""},
 			{"Radar Color", ""}
@@ -149,8 +160,13 @@ namespace Menu {
 			{"Draw Player Icons", ""}, {"Replay Map Color", ""}
 		}},
 		{"ESP", {
-			{"Show ESP", ""}, {"Show Ghosts", ""}, {"Hide During Meetings", ""}, {"Show Boxes", ""},
-			{"Show Tracers", ""}, {"Show Distances", ""}, {"Role-based", ""}
+			{"Show ESP", ""}, {"Show Players", ""},
+			{"Show Ghosts", ""}, {"Show Dead Bodies", ""},
+			{"Show Tracer & Text Shadows", ""}, {"Tracer Thickness", ""}, {"Text Size", ""},
+			{"Hide During Meetings", ""}, {"Show Boxes", ""},
+			{"Show Tracers", ""}, {"Show Distances", ""},
+			{"Use Role Colors Instead of Player Colors", ""},
+			{"Show Crewmates", ""}, {"Show Impostors", ""},
 		}},
 		{"Players", {
 			{"Call Meeting", "Player"}, {"Skip Vote by All", "Player"},
@@ -160,16 +176,21 @@ namespace Menu {
 			{"Attempt to Ban", "Player"}, {"Ban", "Player"},
 			{"Blacklist", "Player"}, {"Whitelist", "Player"},
 			{"Shift", "Player"}, {"Protect", "Player"},
-			{"Vote Immunity", "Player"}, {"Teleport to Vent", "Player"},
+			{"Vote Immunity", "Player"}, {"Teleport to Vent", "Player"}, {"Teleport to Random Vent", "Player"},
+			{"Force Climb Zipline", "Player"}, {"Spam Climb Zipline", "Player"},
+			{"Spam Teleport to Vent", "Player"}, {"Spam Teleport to Random Vents", "Player"},
 			{"Warn", "Player"},
 			{"Send Blank Chat As", "Trolling"}, {"Force Meeting By", "Trolling"},
 			{"Self-Report", "Trolling"}, {"Copy Outfit", "Trolling"},
 			{"Cosmetics Stealer", "Trolling"}, {"Cosmetics Resetter", "Trolling"},
-			{"Murder Loop", "Trolling"}, {"Shift Everyone To", "Trolling"},
-			{"Unshift Everyone", "Trolling"}, {"Vote Off", "Trolling"},
+			{"Murder Loop", "Trolling"}, {"Shapeshift Player To", "Trolling"},
+			{"Unshift Player", "Trolling"}, {"Turn Player Into", "Trolling"},
+			{"Reset Player", "Trolling"}, {"Shift Everyone To", "Trolling"},
+			{"Unshift Everyone", "Trolling"}, {"Turn Everyone Into", "Trolling"},
+			{"Reset Everyone", "Trolling"}, {"Vote Off", "Trolling"},
 			{"Teleport To", "Trolling"}, {"Attach To", "Trolling"},
 			{"Turn into Ghost", "Trolling"}, {"Set Role", "Trolling"},
-			{"Force Color", "Trolling"}, {"Cycle Color", "Trolling"},
+			{"Force Color", "Trolling"}, {"Randomize Color", "Trolling"}, {"Cycle Color", "Trolling"},
 			{"Whisper To", "Trolling"}, {"Cycle Color", "Trolling"},
 			{"Steal Data", "Info"}, {"Copy PUID", "Info"},
 			{"Copy Friend Code", "Info"}, {"Report Player", "Info"},
@@ -190,7 +211,7 @@ namespace Menu {
 			{"Disable Fix Comms", ""}, {"Spam Sabotage Reactor", ""}, {"Spam Sabotage Oxygen", ""}, {"Infinite Mushroom Mixup", ""}
 		}},
 		{"Doors", {
-			{"Close All Doors", ""}, {"Close Room Door", ""}, {"Pin All Doors", ""}, {"Unpin All Doors", ""}, {"Auto Open Doors on Use", ""}
+			{"Close All Doors", ""}, {"Close Room Door", ""}, {"Soft Pin Door", ""}, {"Soft Pin All Doors", ""}, {"Pin All Doors", ""}, {"Unpin All Doors", ""}, {"Auto Open Doors on Use", ""}
 		}},
 		{"Host", {
 			{"Choose Roles", "Utils"}, {"Disable Role Selection", "Utils"}, {"Randomize Roles", "Utils"}, {"Hide Roles List", "Utils"},
@@ -198,10 +219,11 @@ namespace Menu {
 			{"Cancel Start of Game", "Utils"}, {"Always Allow Start Button", "Utils"}, {"Modify Start Countdown", "Utils"},
 			{"Disable Meetings", "Utils"}, {"Disable Sabotages", "Utils"}, {"Disable All Votekicks", "Utils"}, {"Disable Game Ending", "Utils"}, {"End Game", "Utils"},
 			{"Spam Moving Platform", "Utils"}, {"End Meeting", "Utils"}, {"Disable Game Ending", "Utils"}, {"End Game", "Utils"},
-			{"Force Color for Everyone", "Utils"}, {"Unlock Kill Button", "Utils"},
+			{"Allow Players Joining with Preferred Colors", "Utils"}, {"Force Color for Everyone", "Utils"},
+			{"Set Color for Everyone", "Utils"}, {"Randomize Colors for Everyone", "Utils"}, {"Unlock Kill Button", "Utils"},
 			{"Game Mode", "Utils"}, {"Game Duration", "Utils"}, {"Spectator Mode", "Utils"}, {"Show Lobby Timer", "Utils"}, {"Auto Start Game", "Utils"},
-			{"Game Mode", "Utils"}, {"Show Lobby Timer", "Utils"}, {"Auto Start Game", "Utils"}, {"Spectator Mode", "Utils"},
-			{"Kill While Vanished", "Utils"}, {"Bypass Guardian Angel Protections", "Utils"},
+			{"Show Lobby Timer", "Utils"}, {"Auto Start Game", "Utils"}, {"Spectator Mode", "Utils"},
+			{"Kill While Vanished", "Utils"}, {"Bypass Guardian Angel Protections", "Utils"}, {"Level Farm", "Utils"},
 			{"Unlock Kill Button", "Utils"}, {"Allow Killing in Lobbies", "Utils"}, {"Kill While Vanished", "Utils"},
 			{"Disable Sabotages", "Settings"}, {"Host Presets", "Settings"}, {"Kill While Vanished", "Settings"},
 			{"Game Options", "Settings"},
@@ -211,6 +233,7 @@ namespace Menu {
 		{"Debug", {
 			{"Enable Occlusion Culling", ""}, {"Force Load Settings", ""}, {"Force Save Settings", ""}, {"Clear RPC Queues", ""},
 			{"Log Unity Debug Messages", ""}, {"Log Hook Debug Messages", ""},
+			{"Show Example Toast", ""}, {"Show Example Toast (Long Message)", ""},
 			{"Replay", ""}, {"Colors", ""}, {"Profiler", ""},
 			{"Experiments", ""}, {"Enable Anticheat (SMAC)", ""}, {"Point System (Only for Hosting)", ""}
 		}},
@@ -317,6 +340,9 @@ namespace Menu {
 
 		for (const auto& category : categories) {
 			for (const auto& entry : category.second) {
+#ifdef _DEBUG
+				if (category.first == "Debug" && !State.showDebugTab) continue;
+#endif
 				if (ToLower(entry.Name).find(lowerQuery) != std::string::npos) {
 					searchResults.push_back({ category.first, entry.SubGroup });
 					break;
@@ -361,11 +387,11 @@ namespace Menu {
 				else ImGui::TextColored(DiddyCol, IsChatCensored() || IsStreamerMode() ? " [F***son Mode]" : " [Fuckson Mode]");
 			}*/
 			ImGui::SameLine(ImGui::GetWindowWidth() - 19 * State.dpiScale);
-			if (AnimatedButton("-")) State.ShowMenu = false; //minimize button
+			if (ImGui::Button("-")) State.ShowMenu = false; //minimize button
 			//ImGui::BeginTabBar("AmongUs#TopBar", ImGuiTabBarFlags_NoTabListScrollingButtons);
 			ImGui::BeginChild("###SickoMenu", ImVec2(90 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
 			// Search field
-			ImGui::SetNextItemWidth(90 * State.dpiScale); // Adjust the width of the input box
+			ImGui::SetNextItemWidth(70 * State.dpiScale); // Adjust the width of the input box
 			if (InputStringWithHint("##Search", "Search...", &State.searchQuery)/* && State.AprilFoolsMode*/) {
 				/*if (ToLower(searchQuery) == StrRev("nosduh")) {
 					State.AprilFoolsMode = !State.AprilFoolsMode;
@@ -375,6 +401,11 @@ namespace Menu {
 					State.DiddyPartyMode = !State.DiddyPartyMode;
 				}*/
 			}
+			ImGui::SameLine(0.f, 2.f);
+			if (ColoredButton(ImVec4(1.f, 0.f, 0.f, 1.f), "\u00D7")) {
+				State.searchQuery = "";
+			}
+
 			if (ImGui::Selectable("About", openAbout)) {
 				CloseAllOtherTabs(Tabs::About);
 			}
@@ -427,6 +458,7 @@ namespace Menu {
 					if (!State.PanicWarning) {
 						State.PanicMode = true;
 						State.MIG_ThemeChanged = true;
+						if (State.ControlPet) State.DisableControlPetHand = true;
 						ReloadCurrentSceneIfNeeded();
 					}
 				}
@@ -453,6 +485,7 @@ namespace Menu {
 					isPanicWarning = false;
 					State.PanicMode = true;
 					State.MIG_ThemeChanged = true;
+					if (State.ControlPet) State.DisableControlPetHand = true;
 					ReloadCurrentSceneIfNeeded();
 				}
 				ImGui::SameLine();

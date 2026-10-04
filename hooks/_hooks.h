@@ -119,7 +119,6 @@ void dVoteBanSystem_AddVote(VoteBanSystem* __this, int32_t srcClient, int32_t cl
 void dPlatformSpecificData_Serialize(PlatformSpecificData* __this, MessageWriter* writer, MethodInfo* method);
 int32_t dConstants_1_GetBroadcastVersion(MethodInfo* method);
 bool dConstants_1_IsVersionModded(MethodInfo* method);
-void dPlatformSpecificData_Serialize(PlatformSpecificData* __this, MessageWriter* writer, MethodInfo* method);
 bool dLogicGameFlowNormal_IsGameOverDueToDeath(LogicGameFlowNormal* __this, MethodInfo* method);
 bool dLogicGameFlowHnS_IsGameOverDueToDeath(LogicGameFlowHnS* __this, MethodInfo* method);
 void* dPlayerControl_CoSetRole(PlayerControl* __this, RoleTypes__Enum role, bool canOverride, MethodInfo* method);
@@ -160,12 +159,6 @@ bool dPlayerControl_IsFlashlightEnabled(PlayerControl* __this, MethodInfo* metho
 void dPlayerControl_OnDestroy(PlayerControl* __this, MethodInfo* method);
 void dMapCountOverlay_OnEnable(MapCountOverlay* __this, MethodInfo* method);
 void dMapCountOverlay_OnDisable(MapCountOverlay* __this, MethodInfo* method);
-void dMapBehaviour_ShowNormalMap(MapBehaviour* __this, MethodInfo* method);
-void dMapBehaviour_ShowInfectedMap(MapBehaviour* __this, MethodInfo* method);
-void dMapBehaviour_ShowSabotageMap(MapBehaviour* __this, MethodInfo* method);
-void dMapBehaviour_Close(MapBehaviour* __this, MethodInfo* method);
-void dMapBehaviour_OnEnable(MapBehaviour* __this, MethodInfo* method);
-void dMapBehaviour_OnDisable(MapBehaviour* __this, MethodInfo* method);
 void dBanMenu_Select(BanMenu* __this, int32_t clientId, MethodInfo* method);
 void* dIntroCutscene_ShowTeam(IntroCutscene* __this, List_1_PlayerControl_* teamToShow, float duration, MethodInfo* method);
 int32_t dLogicOptionsHnS_GetCrewmateLeadTime(LogicOptionsHnS* __this, MethodInfo* method);
@@ -219,10 +212,27 @@ void dPlayerIdentifierButton_Populate(PlayerIdentifierButton* __this, NetworkedP
 void dGameManager_ReviveEveryoneFreeplay(GameManager* __this, MethodInfo* method);
 void dPlayerControl_Die(PlayerControl* __this, int32_t reason, bool assignGhostRole, MethodInfo* method);
 void dPlayerVoteArea_SetCosmetics(PlayerVoteArea* __this, NetworkedPlayerInfo* playerInfo, MethodInfo* method);
-void dPlayerPhysics_RpcBootFromVent(PlayerPhysics* __this, int32_t ventId, MethodInfo* method);
+void dPlayerPhysics_BootFromVent(PlayerPhysics* __this, int32_t ventId, MethodInfo* method);
 void dPlayerControl_SetKillTimer(PlayerControl* __this, float time, MethodInfo* method);
+void dVentilationSystem_UpdateSystem(VentilationSystem* __this, PlayerControl* player, MessageReader* msgReader, MethodInfo* method);
+void dInnerNetClient_SetEndpoint(InnerNetClient* __this, String* addr, uint16_t port, bool dtls, MethodInfo* method);
+void dNotificationPopper_AddDisconnectMessage(NotificationPopper* __this, String* item, MethodInfo* method);
+void dPlayerControl_CheckColor(PlayerControl* __this, uint8_t bodyColor, MethodInfo* method);
+void dPlayerPhysics_HandleRpc(PlayerPhysics* __this, uint8_t callId, MessageReader* reader, MethodInfo* method);
+void dLobbyNotificationMessage_SetUp(LobbyNotificationMessage* __this, String* item, Sprite* icon, Color textColor, void* onDestroy, MethodInfo* method);
+void dNetworkedPlayerInfo_UpdateNamePlate(NetworkedPlayerInfo* __this, String* namePlate, MethodInfo* method);
+void dGameStartManager_ResetStartState(GameStartManager* __this, MethodInfo* method);
+void dCustomNetworkTransform_HandleRpc(CustomNetworkTransform* __this, uint8_t callId, MessageReader* reader, MethodInfo* method);
+void dPlayerControl_CmdCheckUseZipline(PlayerControl* __this, PlayerControl* target, ZiplineBehaviour* ziplineBehaviour, bool fromTop, MethodInfo* method);
+void dSpiritGuideRole_FixedUpdate(SpiritGuideRole* __this, MethodInfo* method);
 
 // defined in LobbyBehaviour.cpp
 void ApplyHostPreset(const Settings::HostPreset& p);
 void RequestApplyHostPreset(int idx);
 void ApplyCosmeticPreset(const Settings::CosmeticPreset& p);
+void dMapBehaviour_ShowNormalMap(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_ShowInfectedMap(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_ShowSabotageMap(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_Close(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_OnEnable(MapBehaviour* __this, MethodInfo* method);
+void dMapBehaviour_OnDisable(MapBehaviour* __this, MethodInfo* method);

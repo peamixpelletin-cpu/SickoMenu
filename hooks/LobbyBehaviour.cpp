@@ -30,8 +30,11 @@ void dLobbyBehaviour_Update(LobbyBehaviour* __this, MethodInfo* method) {
         }
     }
 
-    if (!State.JoinedLobby) {
+    if (!State.JoinedLobby && IsInLobby()) {
         State.JoinedLobby = true;
+
+        ResetOriginalAppearance();
+
         if (!State.PanicMode && State.AutoApplyCosmeticPreset && !State.CosmeticPresets.empty()) {
             s_pendingCosmeticApply = true;
         }
@@ -56,7 +59,7 @@ void dLobbyBehaviour_Update(LobbyBehaviour* __this, MethodInfo* method) {
     }
     else if (!hasStarted) {
         hasStarted = true;
-        LobbyBehaviour_Start(__this, method); //restart lobby music
+        SoundManager_PlaySound(SoundManager__TypeInfo->static_fields->instance, (AudioClip*)__this->fields.MapTheme, false, 0.07f, NULL, NULL);
     }
     /*if (GameOptions().GetByte(app::ByteOptionNames__Enum::MapId) == 3) {
         GameOptions().SetByte(app::ByteOptionNames__Enum::MapId, 0);
@@ -146,6 +149,17 @@ void dGameContainer_SetupGameInfo(GameContainer* __this, MethodInfo* method) {
     if (State.PanicMode || !State.ShowLobbyInfo) return GameContainer_SetupGameInfo(__this, method);
     GameContainer_SetupGameInfo(__this, method);
     auto gameListing = __this->fields.gameListing;
+
+    uint32_t ip = gameListing.IP;
+    std::string ipAddress = std::format("{}.{}.{}.{}",
+        (ip & 0xFF),
+        (ip >> 8) & 0xFF,
+        (ip >> 16) & 0xFF,
+        (ip >> 24) & 0xFF
+    );
+    uint16_t port = gameListing.Port;
+    std::string ipPortDisplay = State.UseCustomServer ? std::format("\n<#0fb>IP: {}:{}</color>", ipAddress, port) : "";
+
     auto platform = gameListing.Platform;
     std::string platformId = "Unknown";
     switch (platform) {
@@ -185,17 +199,15 @@ void dGameContainer_SetupGameInfo(GameContainer* __this, MethodInfo* method) {
     }
     std::string lobbyCode = IsStreamerMode() ? "******" : convert_from_string(InnerNet_GameCode_IntToGameName(gameListing.GameId, NULL));
     int LobbyTime = (std::max)(0, int(gameListing.Age));
-    std::string lobbyTimeDisplay = "";
 
     std::string ageCol = getHexCodeFromImVec4(State.AgeColor);
     std::string daterCol = getHexCodeFromImVec4(State.DaterNamesColor);
     std::string nameCheckerCol = getHexCodeFromImVec4(State.NameCheckerColor);
     std::string lobbyCodeCol = getHexCodeFromImVec4(State.LobbyCodeColor);
     std::string platformCol = getHexCodeFromImVec4(State.PlatformColor);
+    std::string hostCol = getHexCodeFromImVec4(State.HostColor);
 
-    if (State.ShowLobbyTimer) {
-        lobbyTimeDisplay = std::format("\n{}Age: {}:{}{}</color>", ageCol, int(LobbyTime / 60), LobbyTime % 60 < 10 ? "0" : "", LobbyTime % 60);
-    }
+    std::string lobbyTimeDisplay = std::format("\n{}Age: {}:{}{}</color>", ageCol, int(LobbyTime / 60), LobbyTime % 60 < 10 ? "0" : "", LobbyTime % 60);
     std::string playerCountCol = "<#0f0>";
     if (gameListing.PlayerCount == 4) playerCountCol = "<#ff0>";
     if (gameListing.PlayerCount < 4) playerCountCol = "<#f00>";
@@ -205,8 +217,11 @@ void dGameContainer_SetupGameInfo(GameContainer* __this, MethodInfo* method) {
     const std::unordered_set<std::string> BannedNamesSet(State.LockedNames.begin(), State.LockedNames.end());
     if (BannedNamesSet.find(trueHostName) != BannedNamesSet.end()) trueHostName = nameCheckerCol + trueHostName + "</color>"; // Yellow color for banned names
     std::string separator = "<#0000>000000000000000</color>"; // The crewmate icon gets aligned properly with this
-    std::string playerCountDisplay = std::format("<size=40%>{}\n{}\n{}\n{}{}</color>\n{}{}</color>{}\n{}</size>",
-        separator, trueHostName, playerCount, lobbyCodeCol, lobbyCode, platformCol, platformId, lobbyTimeDisplay, separator);
+
+    std::string size = State.UseCustomServer ? "<size=35%>" : "<size=40%>";
+
+    std::string playerCountDisplay = std::format("{}{}\n{}{}</color>\n{}\n{}{}</color>\n{}{}</color>{}{}\n{}</size>",
+        size, separator, hostCol, trueHostName, playerCount, lobbyCodeCol, lobbyCode, platformCol, platformId, ipPortDisplay, lobbyTimeDisplay, separator);
     TMP_Text_set_text((TMP_Text*)__this->fields.capacity, convert_to_string(playerCountDisplay), NULL);
 }
 
@@ -288,7 +303,7 @@ void dGameStartManager_Update(GameStartManager* __this, MethodInfo* method) {
     }
     State.IsStartCountdownActive = __this->fields.startState == GameStartManager_StartingStates__Enum::Countdown;
     if (IsHost() && State.IsStartCountdownActive && State.CancelingStartGame) {
-        GameStartManager_ResetStartState(__this, NULL);
+        if (!State.PanicMode) dGameStartManager_ResetStartState(__this, NULL);
     }
     State.CancelingStartGame = false;
     bool buttonCheck = __this->fields.LastPlayerCount >= __this->fields.MinPlayers;
@@ -309,6 +324,13 @@ void dGameStartManager_Update(GameStartManager* __this, MethodInfo* method) {
         (float)(__this->fields.LastPlayerCount >= __this->fields.MinPlayers), 0.f, 1.f), NULL);
 }
 
+void dGameStartManager_ResetStartState(GameStartManager* __this, MethodInfo* method) {
+    if (State.ShowHookLogs) Log.HookDebug("Hook dGameStartManager_Update executed", false);
+    GameStartManager_ResetStartState(__this, method);
+    SoundManager_StopSound(SoundManager__TypeInfo->static_fields->instance, __this->fields.gameStartSound, NULL);
+    // fix an in-game bug that left the start sound playing even after canceling starting
+}
+
 static int findGameOffset = 0;
 
 void dFindAGameManager_Update(FindAGameManager* __this, MethodInfo* method) {
@@ -318,7 +340,7 @@ void dFindAGameManager_Update(FindAGameManager* __this, MethodInfo* method) {
 
 void dGameStartManager_ReallyBegin(GameStartManager* __this, bool neverShow, MethodInfo* method) {
     GameStartManager_ReallyBegin(__this, neverShow, method);
-    if (IsHost() && State.ModifyStartCountdown) {
+    if (IsHost() && State.ModifyStartCountdown && !State.PanicMode) {
         State.StartCountdown = std::clamp(State.StartCountdown, 1, !State.SafeMode ? 127 : 5);
         __this->fields.countDownTimer = State.StartCountdown + 0.0001f;
         // The game adds 0.0001f to the countdown timer, so we add it here too to keep it consistent
@@ -376,7 +398,9 @@ void ApplyHostPreset(const Settings::HostPreset& p) {
         .SetFloat(app::FloatOptionNames__Enum::NoisemakerAlertDuration, p.NoisemakerAlertDuration)
         .SetBool(app::BoolOptionNames__Enum::NoisemakerImpostorAlert, p.NoisemakerImpostorAlert)
         .SetFloat(app::FloatOptionNames__Enum::ViperDissolveTime, p.ViperDissolveTime)
-        .SetFloat(app::FloatOptionNames__Enum::DetectiveSuspectLimit, p.DetectiveSuspectLimit);
+        .SetFloat(app::FloatOptionNames__Enum::DetectiveSuspectLimit, p.DetectiveSuspectLimit)
+        .SetFloat(app::FloatOptionNames__Enum::JudgeTaskRequirementPercentage, p.JudgeTaskRequirement)
+        .SetFloat(app::FloatOptionNames__Enum::SpiritGuideCooldownSeconds, p.InfluencerMessageCooldown);
     auto roleOpts = GameOptions().GetRoleOptions();
     for (auto& [role, rp] : p.RoleRates)
         roleOpts.SetRoleRate((app::RoleTypes__Enum)role, rp.Count, rp.Chance);

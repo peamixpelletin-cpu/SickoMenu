@@ -2,12 +2,12 @@
 #include "_hooks.h"
 #include "logger.h"
 #include "state.hpp"
+#include <regex>
 
 static bool isGuestAccount = false;
 
 void fakeSuccessfulLogin(EOSManager* eosManager)
 {
-	EOSManager_DeleteDeviceID(eosManager, NULL, NULL);
 	/*eosManager->fields.loginFlowFinished = true;
 	EOSManager_HasFinishedLoginFlow(eosManager, NULL);*/
 	auto player = app::DataManager_get_Player(nullptr);
@@ -18,6 +18,40 @@ void fakeSuccessfulLogin(EOSManager* eosManager)
 	static FieldInfo* field1 = il2cpp_class_get_field_from_name(account->klass, "loginStatus");
 	auto loggedIn = EOSManager_AccountLoginStatus__Enum::LoggedIn;
 	il2cpp_field_set_value((Il2CppObject*)account, field1, &loggedIn);
+}
+
+void setUsernameEAU(EditAccountUsername* eau) {
+	bool isFriendCodeValid = !State.NewFriendCode.empty() && State.NewFriendCode.find(" ") == std::string::npos && State.NewFriendCode.length() <= 10;
+	auto tmpText = (TMP_Text*)eau->fields.UsernameText;
+
+	if (State.UseNewFriendCode && isFriendCodeValid) {
+		std::string newFriendCode = "";
+		for (auto i : State.NewFriendCode) {
+			if (newFriendCode.ends_with(" ")) {
+				break;
+			}
+			newFriendCode += tolower(i);
+		}
+		TMP_Text_set_text(tmpText, convert_to_string(newFriendCode), NULL);
+	}
+	else {
+		auto textStr = convert_from_string(TMP_Text_get_text(tmpText, NULL));
+		if (!textStr.empty()) {
+			std::string newFriendCode = "";
+			for (auto i : textStr) {
+				newFriendCode += tolower(i);
+			}
+			TMP_Text_set_text(tmpText, convert_to_string(newFriendCode), NULL);
+		}
+		else {
+			std::string newFriendCode = "";
+			std::string randomString = GenerateRandomString();
+			for (auto i : randomString) {
+				newFriendCode += tolower(i);
+			}
+			TMP_Text_set_text(tmpText, convert_to_string(newFriendCode), NULL);
+		}
+	}
 }
 
 /*void dEOSManager_StartInitialLoginFlow(EOSManager* __this, MethodInfo* method) {
@@ -42,7 +76,7 @@ void dEOSManager_BeginLoginFlowWithDeviceID(EOSManager* __this, MethodInfo* meth
 		return;
 	}
 	EOSManager_StartTempAccountFlow(__this, method);
-	//isGuestAccount = true;
+	isGuestAccount = true;
 	EOSManager_CloseStartupWaitScreen(__this, method);
 }
 
@@ -103,46 +137,7 @@ void dEOSManager_Update(EOSManager* __this, MethodInfo* method) {
 	EOSManager_Update(__this, method);
 	//EOSManager_set_FriendCode(__this, __this->fields.friendCode, NULL);
 	if (State.SpoofGuestAccount) {
-		auto player = app::DataManager_get_Player(nullptr);
-		static FieldInfo* field = il2cpp_class_get_field_from_name(player->klass, "account");
-		LOG_ASSERT(field != nullptr);
-		auto account = (PlayerAccountData*)il2cpp_field_get_value_object(field, player);
-		//PlayerAccountData_set_LoginStatus(account, EOSManager_AccountLoginStatus__Enum::LoggedIn, NULL);
-		static FieldInfo* field1 = il2cpp_class_get_field_from_name(account->klass, "loginStatus");
-		auto loggedIn = EOSManager_AccountLoginStatus__Enum::LoggedIn;
-		auto loggedOut = EOSManager_AccountLoginStatus__Enum::Offline;
-		if ((int)il2cpp_field_get_value_object(field1, (Il2CppObject*)account) != (int)loggedOut)
-			il2cpp_field_set_value((Il2CppObject*)account, field1, &loggedIn);
-		/*if (State.UseGuestFriendCode && State.GuestFriendCode != "") {
-			auto username = __this->fields.editAccountUsername;
-			TMP_Text_set_text((TMP_Text*)username->fields.UsernameText, convert_to_string(State.GuestFriendCode), NULL);
-			//EditAccountUsername_SaveUsername(username, NULL);
-		}*/
-	}
-
-	/*if (__this->fields.hasRunLoginFlow && !hasDeletedDeviceId) {
-		EOSManager_DeleteDeviceID(__this, NULL, NULL);
-		LOG_DEBUG("Successfully deleted device ID!");
-		hasDeletedDeviceId = true;
-	}*/
-
-	if (State.ForceLoginAsGuest) {
-		auto player = app::DataManager_get_Player(nullptr);
-		static FieldInfo* field = il2cpp_class_get_field_from_name(player->klass, "account");
-		LOG_ASSERT(field != nullptr);
-		auto account = (PlayerAccountData*)il2cpp_field_get_value_object(field, player);
-		//PlayerAccountData_set_LoginStatus(account, EOSManager_AccountLoginStatus__Enum::LoggedIn, NULL);
-		static FieldInfo* field1 = il2cpp_class_get_field_from_name(account->klass, "loginStatus");
-		auto loggedIn = EOSManager_AccountLoginStatus__Enum::LoggedIn;
-		auto loggedOut = EOSManager_AccountLoginStatus__Enum::Offline;
-		if ((int)il2cpp_field_get_value_object(field1, (Il2CppObject*)account) != (int)loggedOut)
-			il2cpp_field_set_value((Il2CppObject*)account, field1, &loggedIn);
-		/*if (State.UseGuestFriendCode && State.GuestFriendCode != "") {
-			auto username = __this->fields.editAccountUsername;
-			TMP_Text_set_text((TMP_Text*)username->fields.UsernameText, convert_to_string(State.GuestFriendCode), NULL);
-			//EditAccountUsername_SaveUsername(username, NULL);
-		}*/
-		State.ForceLoginAsGuest = false; //button behavior
+		fakeSuccessfulLogin(__this);
 	}
 
 	if (State.SpoofLevel) {
@@ -152,11 +147,6 @@ void dEOSManager_Update(EOSManager* __this, MethodInfo* method) {
 		stats->fields.level = fakeLevel - 1;
 		AbstractSaveData_Save((AbstractSaveData*)player, NULL);
 	}
-
-	/*if (State.EndLoginFlowFlag && State.CurrentScene == "MainMenu") { // wait until main menu to end login flow so we don't get null references
-		EOSManager_EndMergeGuestAccountFlow(__this, method);
-		State.EndLoginFlowFlag = false;
-	}*/
 }
 
 String* dEOSManager_get_ProductUserId(EOSManager* __this, MethodInfo* method) {
@@ -167,62 +157,21 @@ String* dEOSManager_get_ProductUserId(EOSManager* __this, MethodInfo* method) {
 	return puid;
 }
 
-
-//Encrypted PUID Spoofing code [Undetectable]
-
-/*static void f1(const char* c1) {
-	if (a2.b2) {
-		int c2 = (c1[0] != 0) ? 1 : 0;
-		LOG_DEBUG("Vtpnq1");
-	}
-}
-
-static String* f2() {
-	if (a2.c3 && !a2.d4.empty()) {
-		int c3 = a2.d4.size();
-		String* c4 = f3(a2.d4);
-		return c4;
-	}
-	return nullptr;
-}*/
-
 void dPlatformSpecificData_Serialize(PlatformSpecificData* __this, MessageWriter* writer, MethodInfo* method) {
 	if (State.ShowHookLogs) Log.HookDebug("Hook dPlatformSpecificData_Serialize executed", false);
-	if (State.SpoofPlatform) __this->fields.Platform = Platforms__Enum(State.FakePlatform + 1);
-	if (State.FakePlatform == 8) __this->fields.XboxPlatformId = State.FakeXboxId;
-	if (State.FakePlatform == 9) __this->fields.PsnPlatformId = State.FakePsnId;
+	if (!State.PanicMode) {
+		if (State.SpoofPlatform) __this->fields.Platform = Platforms__Enum(State.FakePlatform + 1);
+		if (State.FakePlatform == (int)Platforms__Enum::Xbox)
+			__this->fields.XboxPlatformId = State.FakeXboxId;
+		if (State.FakePlatform == (int)Platforms__Enum::Playstation)
+			__this->fields.PsnPlatformId = State.FakePsnId;
+		if (State.SpoofPlName) __this->fields.PlatformName = convert_to_string(State.FakePlName);
+	}
 	PlatformSpecificData_Serialize(__this, writer, method);
 }
 
 void dEditAccountUsername_SaveUsername(EditAccountUsername* __this, MethodInfo* method) {
 	if (State.ShowHookLogs) Log.HookDebug("Hook dEditAccountUsername_SaveUsername executed", false);
-	if (State.UseNewFriendCode && State.NewFriendCode != "") {
-		std::string newFriendCode = "";
-		for (auto i : State.NewFriendCode) {
-			if (newFriendCode.ends_with(" ")) {
-				break;
-			}
-			newFriendCode += tolower(i);
-		}
-		TMP_Text_set_text((TMP_Text*)__this->fields.UsernameText, convert_to_string(newFriendCode), NULL);
-	}
-	else {
-		auto textStr = TMP_Text_get_text((TMP_Text*)__this->fields.UsernameText, NULL);
-		if (textStr != convert_to_string("")) {
-			std::string newFriendCode = "";
-			for (auto i : convert_from_string(textStr)) {
-				newFriendCode += tolower(i);
-			}
-			TMP_Text_set_text((TMP_Text*)__this->fields.UsernameText, convert_to_string(newFriendCode), NULL);
-		}
-		else {
-			std::string newFriendCode = "";
-			std::string randomString = GenerateRandomString();
-			for (auto i : randomString) {
-				newFriendCode += tolower(i);
-			}
-			TMP_Text_set_text((TMP_Text*)__this->fields.UsernameText, convert_to_string(newFriendCode), NULL);
-		}
-	}
+	setUsernameEAU(__this);
 	EditAccountUsername_SaveUsername(__this, method);
 }

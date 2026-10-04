@@ -18,7 +18,7 @@ namespace ConsoleGui
 
 	bool init = false;
 	void Init() {
-		ImGui::SetNextWindowSize(ImVec2(520, 320) * State.dpiScale, ImGuiCond_None);
+		ImGui::SetNextWindowSize(ImVec2(520, 400) * State.dpiScale, ImGuiCond_None);
 		ImGui::SetNextWindowBgAlpha(State.MenuThemeColor.w);
 
 		if (!init)
@@ -35,6 +35,79 @@ namespace ConsoleGui
 		}
 	}
 
+	const char* getEventString(EVENT_TYPES eventType) {
+		switch (eventType) {
+		case EVENT_TYPES::EVENT_KILL:
+			return "Kill";
+		case EVENT_TYPES::EVENT_VENT:
+			return "Vent";
+		case EVENT_TYPES::EVENT_TASK:
+			return "Task";
+		case EVENT_TYPES::EVENT_REPORT:
+			return "Report";
+		case EVENT_TYPES::EVENT_MEETING:
+			return "Meeting";
+		case EVENT_TYPES::EVENT_VOTE:
+			return "Vote";
+		case EVENT_TYPES::EVENT_CHEAT:
+			return "Cheat";
+		case EVENT_TYPES::EVENT_DISCONNECT:
+			return "Disconnect";
+		case EVENT_TYPES::EVENT_SHAPESHIFT:
+			return "Shapeshift";
+		case EVENT_TYPES::EVENT_PROTECTPLAYER:
+			return "Protect";
+		case EVENT_TYPES::EVENT_PHANTOM:
+			return "Phantom";
+		case EVENT_TYPES::EVENT_SABOTAGE:
+			return "Sabotage";
+		case EVENT_TYPES::EVENT_WALK:
+			return "Walk";
+		case EVENT_TYPES::EVENT_MODERATION:
+			return "Moderation";
+		}
+		return "Unknown";
+	}
+
+	// helper methods for showing appropriate toasts based on selected filters
+
+	bool IsEventFiltered(EVENT_TYPES eventType) {
+		bool isUsingEventFilter = false;
+		bool isEventFiltered = false;
+		auto eventStr = getEventString(eventType);
+
+		for (const auto& pair : ConsoleGui::event_filter) {
+			if (pair.second) {
+				isUsingEventFilter = true;
+				if (pair.first == eventStr) {
+					isEventFiltered = true;
+					break;
+				}
+			}
+		}
+
+		return !isUsingEventFilter || isEventFiltered;
+	}
+
+	bool IsPlayerFiltered(Game::PlayerId playerId) {
+		bool isUsingPlayerFilter = false;
+		for (auto& pair : ConsoleGui::player_filter) {
+			if (pair.second && pair.first.has_value()) {
+				isUsingPlayerFilter = true;
+				break;
+			}
+		}
+
+		if (!isUsingPlayerFilter) return true;
+
+		if (playerId < 0 || playerId >= player_filter.size()) return false;
+
+		auto& p = ConsoleGui::player_filter.at(playerId);
+		if (!p.second) return false;
+		if (!p.first.has_value()) return false;
+
+		return true;
+	}
 
 	void Render() {
 		ConsoleGui::Init();
@@ -47,12 +120,12 @@ namespace ConsoleGui
 		titleCol.w = 1.f;
 		ImGui::TextColored(titleCol, "Console");
 		ImGui::SameLine(ImGui::GetWindowWidth() - 20 * State.dpiScale);
-		if (AnimatedButton("-")) State.ShowConsole = false; //minimize button
+		if (ImGui::Button("-")) State.ShowConsole = false; //minimize button
 		ImGui::BeginChild("console#filter", ImVec2(520, 40) * State.dpiScale, true, ImGuiWindowFlags_NoBackground);
 		ImGui::Text("Event Filter: ");
 		ImGui::SameLine();
 		CustomListBoxIntMultiple("Event Types", &ConsoleGui::event_filter, 100.f * State.dpiScale);
-		if (IsInGame()) {
+		if (IsInGame() || IsInLobby()) {
 			ImGui::SameLine(0.f * State.dpiScale, 5.f * State.dpiScale);
 			ImGui::Text("Player Filter: ");
 			ImGui::SameLine();
@@ -64,8 +137,7 @@ namespace ConsoleGui
 			}
 		}
 		ImGui::EndChild();
-		ImGui::Separator();
-		ImGui::BeginChild("console#scroll", ImVec2(511, 270) * State.dpiScale, true, ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_NoBackground);
+		ImGui::BeginChild("console#scroll", ImVec2(511, 331) * State.dpiScale, true, ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_NoBackground);
 
 		// pre-processing of filters
 		bool isUsingEventFilter = false, isUsingPlayerFilter = false;
@@ -94,13 +166,13 @@ namespace ConsoleGui
 				if (evt->getType() == EVENT_TYPES::EVENT_WALK)
 					continue;
 
-				if (isUsingEventFilter && ConsoleGui::event_filter.at((size_t)evt->getType()).second == false)
+				if (isUsingEventFilter && !ConsoleGui::event_filter.at((size_t)evt->getType()).second)
 					continue;
 				if (isUsingPlayerFilter) {
 					if (evt->getSource().playerId < 0 || evt->getSource().playerId >= ConsoleGui::player_filter.size())
 						continue;
 					auto& p = ConsoleGui::player_filter.at(evt->getSource().playerId);
-					if (p.second == false)
+					if (!p.second)
 						continue;
 					if (!p.first.has_value())
 						continue;

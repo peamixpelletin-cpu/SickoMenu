@@ -1,5 +1,6 @@
 #include "pch-il2cpp.h"
 #include "_rpc.h"
+#include "_hooks.h"
 #include "game.h"
 #include "utility.h"
 #include "state.hpp"
@@ -194,7 +195,7 @@ void RpcShapeshiftAsHost::Process()
     }
 
     // actually shapeshift the player
-    PlayerControl_Shapeshift(Player, targetPc, animate, NULL);
+    dPlayerControl_Shapeshift(Player, targetPc, animate, NULL); // use the hook to log shapeshift events
     MessageWriter_StartMessage(writer, rpcFlag, NULL);
     MessageWriter_WritePacked(writer, Player->fields._.NetId, NULL);
     MessageWriter_WriteByte(writer, (uint8_t)RpcCalls__Enum::Shapeshift, NULL);
@@ -284,11 +285,28 @@ RpcVotePlayer::RpcVotePlayer(PlayerControl* Player, PlayerControl* target, bool 
 void RpcVotePlayer::Process()
 {
     if (!PlayerSelection(Player).has_value() || !PlayerSelection(target).has_value()) return;
+    if (MeetingHud__TypeInfo->static_fields->Instance == nullptr) return;
 
     if (skip)
         MeetingHud_CmdCastVote(MeetingHud__TypeInfo->static_fields->Instance, Player->fields.PlayerId, 253, NULL);
     else
         MeetingHud_CmdCastVote(MeetingHud__TypeInfo->static_fields->Instance, Player->fields.PlayerId, target->fields.PlayerId, NULL);
+}
+
+RpcOverrulePlayer::RpcOverrulePlayer(PlayerControl* target)
+{
+    this->target = target;
+}
+
+void RpcOverrulePlayer::Process()
+{
+    if (!PlayerSelection(target).has_value()) return;
+
+    auto meetingHud = MeetingHud__TypeInfo->static_fields->Instance;
+
+    if (meetingHud == nullptr) return;
+
+    MeetingHud_RpcVotingComplete(meetingHud, {}, GetPlayerData(target), false, true, 67, NULL);
 }
 
 RpcVoteKick::RpcVoteKick(PlayerControl* target, bool exploit)
@@ -356,7 +374,44 @@ EndMeeting::EndMeeting() {
 
 void EndMeeting::Process()
 {
-    MeetingHud_Close(MeetingHud__TypeInfo->static_fields->Instance, NULL);
+    // reference (CloseMeetingCheat): https://github.com/scp222thj/MalumMenu/blob/main/src/Cheats/MalumCheats.cs
+
+    if (State.InMeeting && MeetingHud__TypeInfo->static_fields->Instance != NULL) {
+        State.InMeeting = false;
+        auto meetingHud = MeetingHud__TypeInfo->static_fields->Instance;
+        // MeetingHud_Close(MeetingHud__TypeInfo->static_fields->Instance, NULL);
+        ((InnerNetObject*)meetingHud)->fields.DespawnOnDestroy = false;
+
+        auto meetingGameObj = Component_get_gameObject((Component_1*)meetingHud, NULL);
+        Object_Destroy((Object_1*)meetingGameObj, NULL);
+
+        auto hud = Game::HudManager.GetInstance();
+        auto hudGameObj = Component_get_gameObject((Component_1*)hud->fields.FullScreen, NULL);
+        GameObject_SetActive(hudGameObj, false, NULL);
+
+        for (auto pc : GetAllPlayerControl()) {
+            if (auto player = PlayerSelection(pc).validate();
+                player.has_value() && !player.is_LocalPlayer() && !player.is_Disconnected()) {
+                if (auto role = player.get_PlayerData()->fields.Role;
+                    role != nullptr && role->fields.CanUseKillButton && !player.get_PlayerData()->fields.IsDead) {
+                    pc->fields.killTimer = (std::max)(GameOptions().GetKillCooldown(), 0.f);
+                    //STREAM_DEBUG("Player " << ToString(pc) << " KillTimer " << pc->fields.killTimer);
+                }
+            }
+        }
+
+        (*Game::pShipStatus)->fields.EmergencyCooldown = (float)GameOptions().GetInt(Int32OptionNames__Enum::EmergencyCooldown);
+
+        static std::string followerCamTypeName = translate_type_name("FollowerCamera, Assembly-CSharp");
+        Type* followerCamType = app::Type_GetType(convert_to_string(followerCamTypeName), NULL);
+        auto followerCam = (FollowerCamera*)Component_GetComponent((Component_1*)State.FollowerCam, followerCamType, NULL);
+        followerCam->fields.Locked = false;
+
+        HudManager_SetMapAndInfoButtonsEnabled(hud, true, NULL);
+        if (!State.DisableHud) HudManager_SetHudActive(hud, true, NULL);
+
+        // ControllerManager_CloseAndResetAll(ControllerManager__TypeInfo->static_fields->Instance, NULL);
+    }
 }
 
 DestroyMap::DestroyMap() {
@@ -568,6 +623,7 @@ void RpcBootFromVent::Process()
 {
     if (!PlayerSelection(Player).has_value()) return;
 
+    if (Player == *Game::pLocalPlayer) State.AntiExploit_IsTeleportingSelf = true;
     PlayerPhysics_RpcBootFromVent(Player->fields.MyPhysics, ventId, NULL);
 }
 
@@ -582,6 +638,21 @@ void RpcBootFromVentNonHost::Process()
     if (!PlayerSelection(Player).has_value()) return;
 
     SendBootVentNonHost(Player, ventId);
+}
+
+RpcClimbZipline::RpcClimbZipline(PlayerControl* Player, bool isTop)
+{
+    this->Player = Player;
+    this->isTop = isTop;
+}
+
+void RpcClimbZipline::Process()
+{
+    if (!PlayerSelection(Player).has_value()) return;
+    if (*Game::pShipStatus == NULL || State.mapType != Settings::MapType::Fungle) return;
+
+    auto ziplineBehaviour = (ZiplineBehaviour*)((FungleShipStatus*)(*Game::pShipStatus))->fields._Zipline_k__BackingField;
+    PlayerControl_RpcUseZipline(Player, Player, ziplineBehaviour, isTop, NULL);
 }
 
 AttemptToBan::AttemptToBan(PlayerControl* Player)
@@ -679,4 +750,28 @@ void PunishPlayer::Process() {
     }
 
     app::InnerNetClient_KickPlayer((InnerNetClient*)(*Game::pAmongUsClient), Player->fields._.OwnerId, isBan, nullptr);
+}
+
+SpamBanMinutes::SpamBanMinutes(int minutesToBan)
+{
+    this->minutesToBan = minutesToBan;
+}
+
+void SpamBanMinutes::Process() {
+    if (!IsHost()) return;
+
+    if (*Game::pLobbyBehaviour != NULL) {
+        InnerNetObject_Despawn((InnerNetObject*)(*Game::pLobbyBehaviour), NULL);
+    }
+
+    int banPoints = (int)(minutesToBan / 5) + 2;
+    // banMinutes are calculated as (banPoints - 2) * 5
+
+    auto writer = MessageWriter_Get(SendOption__Enum::None, NULL);
+
+    uint8_t startGameFlag = 2;
+
+    for (int i = 0; i < banPoints; ++i) {
+        InnerNetClient_SendStartGame((InnerNetClient*)(*Game::pAmongUsClient), NULL);
+    }
 }

@@ -27,9 +27,9 @@ Output: artifacts/x64/SickoMenu-merged-x64.zip, containing SickoMenu.dll, versio
 
 ## Verification status
 
-Source integration checks were run. Native compilation was attempted but the local Visual Studio installation lacks C++ targets (Microsoft.Cpp.Default.props, MSB4019). **No DLL was produced or tested in-game in that environment.** GitHub access was blocked; this package does not indicate a repository update.
+Seven source integration checks pass. Both x64 release configurations compiled and linked successfully in [GitHub Actions run 37203322887](https://github.com/peamixpelletin-cpu/SickoMenu/actions/runs/37203322887), producing SickoMenu.dll and version.dll in a ZIP with SHA-256 hashes. The local Visual Studio installation still lacks C++ targets; compilation was completed on GitHub's Windows runner. **In-game testing remains outstanding.**
 
-Before release, build successfully and verify in a private test lobby:
+Verify in a private test lobby before relying on gameplay behavior:
 
 1. Soft-pin one/all rooms on Polus/Airship. Verify the 1.5-second delay, mode switching, and multiple-room unpin.
 2. Check hard pins with manual and Auto Open Doors as host/client; verify panic mode.

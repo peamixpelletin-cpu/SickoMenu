@@ -6,7 +6,8 @@ Base: supplied official v5.1.1 snapshot, with additions from supplied fanmade v5
 
 - Soft pin on Polus/Airship: closes doors 1.5 seconds after opening. Works with official multiple-room selection and all doors.
 - Hard pin fixes: suppress open updates, prevent auto-open minigames bypassing pins, and re-close pinned doors. Non-host pulse requests wait for the queue to drain.
-- Pin modes are mutually exclusive per room. Unpin removes both. Decontamination is excluded; panic mode suspends enforcement.
+- Pin modes are mutually exclusive per room. Unpin removes both. Decontamination is included in the door list, open/close commands, and pin controls; panic mode suspends enforcement.
+- Polus decontamination chambers have separate Upper and Lower labels based on their world positions, with unique selection IDs. Individual/multiple-room and all-door actions include both chambers.
 - Radar > Show Others in Map: player icons, optional body icons, zoom scaling, meeting-position snapshots, and hiding over chat/admin. Scene changes clear cached positions.
 - Settings > General > Show Keybinds: displays assigned shortcuts. The fanmade setting previously had no renderer.
 - Autokill, saved setting, and shortcut editor, using official target selection. Limited to active gameplay, one attempt per 250 ms.
@@ -32,6 +33,7 @@ Seven source integration checks pass. Both x64 release configurations compiled a
 Verify in a private test lobby before relying on gameplay behavior:
 
 1. Soft-pin one/all rooms on Polus/Airship. Verify the 1.5-second delay, mode switching, and multiple-room unpin.
+   On Polus, check that Decontamination (Upper) and Decontamination (Lower) can each be selected and controlled independently, including Ctrl multi-selection and all-door actions.
 2. Check hard pins with manual and Auto Open Doors as host/client; verify panic mode.
 3. Check map overlay alignment on every map, different zoom/window sizes, and flipped Skeld. The inherited fanmade map-fit calculation needs visual validation against the current game.
 4. Check hiding over chat/admin, scene resets, and meeting snapshots resuming after exile.

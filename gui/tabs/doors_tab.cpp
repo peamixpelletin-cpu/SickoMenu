@@ -15,6 +15,34 @@ namespace DoorsTab {
             room == SystemTypes__Enum::Decontamination3;
     }
 
+    static const char* GetDoorLabel(SystemTypes__Enum room) {
+        if (State.mapType != Settings::MapType::Pb || !IsDecontamination(room) ||
+            !Game::pShipStatus || !*Game::pShipStatus || !(*Game::pShipStatus)->fields.AllDoors)
+            return TranslateSystemTypes(room);
+
+        // Use the chamber's average world Y, not an assumed system-ID ordering.
+        // Each chamber can contain multiple physical doors with the same Room.
+        float roomY = 0.f, otherY = 0.f;
+        int roomCount = 0, otherCount = 0;
+        for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors)) {
+            if (!door || !IsDecontamination(door->fields.Room)) continue;
+            auto transform = app::Component_get_transform(reinterpret_cast<Component_1*>(door), nullptr);
+            if (!transform) continue;
+            const float y = app::Transform_get_position(transform, nullptr).y;
+            if (door->fields.Room == room) {
+                roomY += y;
+                ++roomCount;
+            }
+            else {
+                otherY += y;
+                ++otherCount;
+            }
+        }
+        if (roomCount == 0 || otherCount == 0) return TranslateSystemTypes(room);
+        return roomY / roomCount > otherY / otherCount ?
+            "Decontamination (Upper)" : "Decontamination (Lower)";
+    }
+
     static void Unpin(SystemTypes__Enum room) {
         State.pinnedDoors.erase(std::remove(State.pinnedDoors.begin(), State.pinnedDoors.end(), room), State.pinnedDoors.end());
         State.softPinnedDoors.erase(std::remove(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), room), State.softPinnedDoors.end());
@@ -23,7 +51,6 @@ namespace DoorsTab {
     }
 
     static void Pin(SystemTypes__Enum room, bool soft) {
-        if (IsDecontamination(room)) return;
         Unpin(room);
         (soft ? State.softPinnedDoors : State.pinnedDoors).push_back(room);
         State.rpcQueue.push(new RpcCloseDoorsOfType(room, false));
@@ -34,63 +61,61 @@ namespace DoorsTab {
 			ImGui::SameLine(100 * State.dpiScale);
 			ImGui::BeginChild("doors#list", ImVec2(200, 0) * State.dpiScale, true, ImGuiWindowFlags_NoBackground);
 			bool shouldEndListBox = ImGui::ListBoxHeader("###doors#list", ImVec2(200, 150) * State.dpiScale);
-			for (auto systemType : State.mapDoors) {
-				if (systemType == SystemTypes__Enum::Decontamination
-					|| systemType == SystemTypes__Enum::Decontamination2
-					|| systemType == SystemTypes__Enum::Decontamination3) {
-					continue;
-				}
-				bool isOpen;
-				auto openableDoor = GetOpenableDoorByRoom(systemType);
-				if (!openableDoor || !openableDoor->klass) continue;
-				if ((openableDoor->klass->parent && "PlainDoor"sv == openableDoor->klass->parent->name)
-					|| "PlainDoor"sv == openableDoor->klass->name) {
-					isOpen = reinterpret_cast<PlainDoor*>(openableDoor)->fields.Open;
-				}
-				else if ("MushroomWallDoor"sv == openableDoor->klass->name) {
-					isOpen = reinterpret_cast<MushroomWallDoor*>(openableDoor)->fields.open;
-				}
-				else {
-					continue;
-				}
-				bool isPinned = std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), systemType) != State.pinnedDoors.end();
-
-				bool isSoftPinned = std::find(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), systemType) != State.softPinnedDoors.end();
-				bool isSelected = std::find(State.selectedDoors.begin(), State.selectedDoors.end(), systemType) == State.selectedDoors.end();
-
-				ImVec4 selectableColor = isPinned ? ImVec4(1.f, 0.f, 0.f, 1.f) :
-                    isSoftPinned ? ImVec4(1.f, 0.65f, 0.f, 1.f) :
-					(State.RgbMenuTheme ? State.RgbColor : State.MenuThemeColor);
-
-				if (isPinned || isSoftPinned || !isOpen) ImGui::PushStyleColor(ImGuiCol_Text, selectableColor);
-
-				if (ImGui::Selectable(TranslateSystemTypes(systemType), !isSelected)) {
-					bool isCtrl = ImGui::IsKeyDown(0x11) || ImGui::IsKeyDown(0xA2) || ImGui::IsKeyDown(0xA3);
-					bool isShifted = ImGui::IsKeyDown(0x10);
-
-					if (isCtrl) {
-						if (isShifted) {
-							State.selectedDoors.clear();
-						}
-						else {
-							auto it_sel = std::find(State.selectedDoors.begin(), State.selectedDoors.end(), systemType);
-							if (it_sel != State.selectedDoors.end()) {
-								State.selectedDoors.erase(it_sel);
-							}
-							else {
-								State.selectedDoors.push_back(systemType);
-							}
-						}
+			if (shouldEndListBox) {
+				for (auto systemType : State.mapDoors) {
+					bool isOpen;
+					auto openableDoor = GetOpenableDoorByRoom(systemType);
+					if (!openableDoor || !openableDoor->klass) continue;
+					if ((openableDoor->klass->parent && "PlainDoor"sv == openableDoor->klass->parent->name)
+						|| "PlainDoor"sv == openableDoor->klass->name) {
+						isOpen = reinterpret_cast<PlainDoor*>(openableDoor)->fields.Open;
+					}
+					else if ("MushroomWallDoor"sv == openableDoor->klass->name) {
+						isOpen = reinterpret_cast<MushroomWallDoor*>(openableDoor)->fields.open;
 					}
 					else {
-						State.selectedDoors = { systemType };
+						continue;
 					}
-				}
+					bool isPinned = std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), systemType) != State.pinnedDoors.end();
 
-				if (isPinned || isSoftPinned || !isOpen) ImGui::PopStyleColor(1);
-			}
-			if (shouldEndListBox)
+					bool isSoftPinned = std::find(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), systemType) != State.softPinnedDoors.end();
+					bool isSelected = std::find(State.selectedDoors.begin(), State.selectedDoors.end(), systemType) == State.selectedDoors.end();
+
+					ImVec4 selectableColor = isPinned ? ImVec4(1.f, 0.f, 0.f, 1.f) :
+	                    isSoftPinned ? ImVec4(1.f, 0.65f, 0.f, 1.f) :
+						(State.RgbMenuTheme ? State.RgbColor : State.MenuThemeColor);
+
+					if (isPinned || isSoftPinned || !isOpen) ImGui::PushStyleColor(ImGuiCol_Text, selectableColor);
+
+					ImGui::PushID(static_cast<int>(systemType));
+					if (ImGui::Selectable(GetDoorLabel(systemType), !isSelected)) {
+						bool isCtrl = ImGui::IsKeyDown(0x11) || ImGui::IsKeyDown(0xA2) || ImGui::IsKeyDown(0xA3);
+						bool isShifted = ImGui::IsKeyDown(0x10);
+
+						if (isCtrl) {
+							if (isShifted) {
+								State.selectedDoors.clear();
+							}
+							else {
+								auto it_sel = std::find(State.selectedDoors.begin(), State.selectedDoors.end(), systemType);
+								if (it_sel != State.selectedDoors.end()) {
+									State.selectedDoors.erase(it_sel);
+								}
+								else {
+									State.selectedDoors.push_back(systemType);
+								}
+							}
+						}
+						else {
+							State.selectedDoors = { systemType };
+						}
+					}
+
+					ImGui::PopID();
+					if (isPinned || isSoftPinned || !isOpen) ImGui::PopStyleColor(1);
+				}
 				ImGui::ListBoxFooter();
+			}
 			ImGui::EndChild();
 
 			ImGui::SameLine();

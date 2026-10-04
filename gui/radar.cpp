@@ -4,15 +4,20 @@
 #include "utility.h"
 #include "state.hpp"
 #include "gui-helpers.hpp"
+
 #include <algorithm>
 #include <array>
+#include <mutex>
 
 namespace Radar {
 	static std::array<Vector2, Game::MAX_PLAYERS> mapPlayerPositions = {};
 	static std::array<bool, Game::MAX_PLAYERS> hasMapPlayerPosition = {};
 	static bool mapPlayerPositionsFrozenForMeeting = false;
 
+	static std::mutex mapPositionMutex;
+
 	ImU32 GetRadarPlayerColor(NetworkedPlayerInfo* playerData) {
+		if (!playerData) return ImU32(0);
 		auto outfit = GetPlayerOutfit(playerData);
 		if (outfit == NULL) return ImU32(0);
 
@@ -67,7 +72,8 @@ namespace Radar {
 		zoomFactorOut = zoomFactor;
 
 		const ImVec2 mapSize(baseWidth * mapScale, baseHeight * mapScale);
-		origin = ImVec2((screenSize.x - mapSize.x) * 0.5f, (screenSize.y - mapSize.y) * 0.5f);
+		const ImVec2 fullSize = DirectX::GetWindowSize(true);
+		origin = ImVec2((fullSize.x - mapSize.x) * 0.5f, (fullSize.y - mapSize.y) * 0.5f);
 		return mapScale > 0.f;
 	}
 
@@ -166,6 +172,7 @@ namespace Radar {
 	}
 
 	void CaptureMapPlayerPositions() {
+		std::lock_guard<std::mutex> lock(mapPositionMutex);
 		if (mapPlayerPositionsFrozenForMeeting)
 			return;
 
@@ -173,7 +180,8 @@ namespace Radar {
 	}
 
 	void CaptureMeetingMapPlayerPositions() {
-		if (mapPlayerPositionsFrozenForMeeting)
+		std::lock_guard<std::mutex> lock(mapPositionMutex);
+		if (mapPlayerPositionsFrozenForMeeting || !IsInGame())
 			return;
 
 		CaptureMapPlayerPositionsInternal();
@@ -181,8 +189,15 @@ namespace Radar {
 	}
 
 	void ResetMapPlayerPositionFreeze() {
+		std::lock_guard<std::mutex> lock(mapPositionMutex);
 		mapPlayerPositionsFrozenForMeeting = false;
 	}
+
+	void ResetMapPlayerPositions() {
+        std::lock_guard<std::mutex> lock(mapPositionMutex);
+        hasMapPlayerPosition.fill(false);
+        mapPlayerPositionsFrozenForMeeting = false;
+    }
 
 	void SquareConstraint(ImGuiSizeCallbackData* data)
 	{
@@ -253,9 +268,19 @@ namespace Radar {
 
 		if (State.LockRadar || (IsInGame() && State.ShowRadar_ShiftLeftClickClosesRoomDoor &&
 			ImGui::IsKeyDown(VK_SHIFT)))
-			ImGui::Begin("Radar", &State.ShowRadar, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
+			ImGui::Begin("Radar", &State.ShowRadar, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMouseInputs);
 		else
 			ImGui::Begin("Radar", &State.ShowRadar, ImGuiWindowFlags_NoDecoration);
+
+		ImVec2 windowMin = ImGui::GetWindowPos();
+		ImVec2 windowMax = windowMin + ImGui::GetWindowSize();
+		ImGuiIO& io = ImGui::GetIO();
+		bool mouseOverRadar = io.MousePos.x >= windowMin.x && io.MousePos.x <= windowMax.x &&
+			io.MousePos.y >= windowMin.y && io.MousePos.y <= windowMax.y;
+		State.HoveringOverAnyWindowButRadar = ImGui::GetIO().WantCaptureMouse && !mouseOverRadar;
+
+		// unfortunately, this solution does not cover the case when the radar is over other menus,
+		// thus allowing you to click through the overlapping area
 
 		ImVec2 winpos = ImGui::GetWindowPos();
 
@@ -314,8 +339,8 @@ namespace Radar {
 
 		ImGui::PopStyleVar(1);
 	}
-
 	void RenderMapPlayers() {
+		std::lock_guard<std::mutex> lock(mapPositionMutex);
 		ImVec2 mapOrigin;
 		float mapScale = 1.f;
 		float fitScale = 1.f;
@@ -326,7 +351,7 @@ namespace Radar {
 
 		const ImVec2 screenSize = DirectX::GetWindowSize();
 		ImGui::SetNextWindowPos(ImVec2(0.f, 0.f), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(screenSize, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(DirectX::GetWindowSize(true), ImGuiCond_Always);
 		ImGui::SetNextWindowBgAlpha(0.f);
 
 		ImGui::Begin("Map Player Positions", nullptr,

@@ -25,7 +25,7 @@ static void CloseDoorLocally(OpenableDoor* door) {
 }
 
 static bool OpenDoor(OpenableDoor* door) {
-    if (door == nullptr)
+    if (door == nullptr || door->klass == nullptr)
         return false;
 
     if (IsHardPinnedDoor(door)) {

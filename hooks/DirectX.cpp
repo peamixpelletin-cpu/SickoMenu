@@ -12,6 +12,7 @@
 #include "radar.hpp"
 #include "replay.hpp"
 #include "esp.hpp"
+#include "toasts.hpp"
 #include "state.hpp"
 #include "theme.hpp"
 #include <mutex>
@@ -46,14 +47,20 @@ typedef struct Cache
 
 static cache_t s_Cache;
 
-ImVec2 DirectX::GetWindowSize()
+ImVec2 DirectX::GetWindowSize(bool fullScreenCheck)
 {
     if (Screen_get_fullScreen(nullptr))
     {
         RECT rect;
         GetWindowRect(window, &rect);
+        ImVec2 vec = { (float)(rect.right - rect.left),  (float)(rect.bottom - rect.top) };
 
-        return { (float)(rect.right - rect.left),  (float)(rect.bottom - rect.top) };
+        if (fullScreenCheck) return vec;
+        else {
+            float width = (float)Screen_get_width(nullptr), height = (float)Screen_get_height(nullptr);
+            float factor = (std::min)(vec.x / width, vec.y / height);
+            return { width * factor, height * factor };
+        }
     }
 
     return { (float)Screen_get_width(nullptr), (float)Screen_get_height(nullptr) };
@@ -62,7 +69,7 @@ ImVec2 DirectX::GetWindowSize()
 
 static bool CanDrawEsp()
 {
-    return (!State.PanicMode && IsInGame() || IsInLobby()) && State.ShowEsp && (!State.InMeeting || !State.HideEsp_During_Meetings);
+    return (!State.PanicMode && IsInGame() || IsInLobby()) && State.ShowEsp && ((!State.InMeeting && !State.InExileUI) || !State.HideEsp_During_Meetings);
 }
 
 static bool CanDrawRadar()
@@ -84,7 +91,30 @@ static bool IsChatOpen()
 
 static bool CanDrawMapPlayers()
 {
-    return !State.PanicMode && IsInGame() && State.ShowRadar_OthersInMap && State.IsNormalMapOpen && !IsChatOpen();
+    return !State.PanicMode && IsInGame() && State.ShowRadar_OthersInMap && State.IsNormalMapOpen &&
+        !State.IsAdminMapOpen && !State.InExileUI && !IsChatOpen();
+}
+
+static void RenderKeybinds() {
+    ImGui::SetNextWindowBgAlpha(0.65f);
+    ImGui::SetNextWindowPos(ImVec2(12.f, 12.f), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("Keybinds", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing)) {
+        const std::pair<const char*, uint8_t> bindings[] = {
+            {"Menu", State.KeyBinds.Toggle_Menu}, {"Radar", State.KeyBinds.Toggle_Radar},
+            {"Console", State.KeyBinds.Toggle_Console}, {"NoClip", State.KeyBinds.Toggle_Noclip},
+            {"Autokill", State.KeyBinds.Toggle_Autokill}, {"Zoom", State.KeyBinds.Toggle_Zoom},
+            {"Freecam", State.KeyBinds.Toggle_Freecam}, {"Replay", State.KeyBinds.Toggle_Replay},
+            {"Repair sabotage", State.KeyBinds.Repair_Sabotage}, {"Close doors", State.KeyBinds.Close_All_Doors},
+            {"Close room door", State.KeyBinds.Close_Current_Room_Door}, {"HUD", State.KeyBinds.Toggle_Hud},
+            {"Chat", State.KeyBinds.Toggle_ChatAlwaysActive}, {"Ghost messages", State.KeyBinds.Toggle_ReadGhostMessages},
+            {"Reset appearance", State.KeyBinds.Reset_Appearance}, {"Randomize appearance", State.KeyBinds.Randomize_Appearance},
+            {"Complete tasks", State.KeyBinds.Complete_Tasks}, {"Cancel start", State.KeyBinds.Cancel_Start},
+            {"Leave game", State.KeyBinds.Leave_Game}, {"Panic", State.KeyBinds.Toggle_Sicko}
+        };
+        for (const auto& binding : bindings)
+            if (binding.second != 0) ImGui::Text("%s: %s", KeyBinds::ToString(binding.second), binding.first);
+    }
+    ImGui::End();
 }
 
 static bool CanDrawReplay()
@@ -162,22 +192,24 @@ LRESULT __stdcall dWndProc(const HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Reset_Appearance) && (IsInGame() || IsInLobby())) ControlAppearance(false);
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Randomize_Appearance)) ControlAppearance(true);
         if (KeyBinds::IsKeyPressed(State.KeyBinds.Complete_Tasks) && IsInGame()) CompleteAllTasks();
-        if (KeyBinds::IsKeyPressed(State.KeyBinds.Leave_Game) && (IsInGame() || IsInLobby()) && !State.PanicMode)
+        if (KeyBinds::IsKeyPressed(State.KeyBinds.Leave_Game) && (IsInGame() || IsInLobby()))
             app::AmongUsClient_ExitGame((*Game::pAmongUsClient), DisconnectReasons__Enum::ExitGame, NULL);
+        if (KeyBinds::IsKeyPressed(State.KeyBinds.Cancel_Start) && IsInLobby() && IsHost()) State.CancelingStartGame = true;
     }
     if (KeyBinds::IsKeyPressed(State.KeyBinds.Toggle_Sicko)) {
         State.PanicMode = !State.PanicMode;
         State.MIG_ThemeChanged = true;
+        if (State.ControlPet) State.DisableControlPetHand = true;
         ReloadCurrentSceneIfNeeded();
     }
 
     if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
         return true;
 
-    auto hud = Game::HudManager.GetInstance();
-    if ((IsInGame() || IsInLobby()) && hud != nullptr && hud->fields.Chat != NULL && shouldKeybindsActivate) {
-        bool chatOpen = IsChatOpen();
-        bool isScrollModifierAllowed = !chatOpen && !State.InMeeting && State.EnableZoom_ScrollZoom;
+    if ((IsInGame() || IsInLobby()) && Game::HudManager.GetInstance()->fields.Chat != NULL && shouldKeybindsActivate) {
+        auto chatState = Game::HudManager.GetInstance()->fields.Chat->fields.state;
+        bool chatOpen = chatState == ChatControllerState__Enum::Open || chatState == ChatControllerState__Enum::Opening || chatState == ChatControllerState__Enum::Closing;
+        bool isScrollModifierAllowed = !chatOpen && !State.InMeeting && State.EnableZoom_ScrollZoom && !State.HoveringOverAnyWindowButRadar;
         bool isShifted = ImGui::IsKeyDown(VK_SHIFT) || ImGui::IsKeyDown(VK_LSHIFT) || ImGui::IsKeyDown(VK_RSHIFT);
 
         if (!isShifted && isScrollModifierAllowed && State.EnableZoom && (IsInGame() || IsInLobby())) {
@@ -223,6 +255,7 @@ bool ImGuiInitialization(IDXGISwapChain* pSwapChain) {
 
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
+        io.IniFilename = "SickoMenu/imgui.ini";
         io.ConfigFlags = ImGuiConfigFlags_NoMouseCursorChange;
         ImGui_ImplWin32_Init(DirectX::window);
         ImGui_ImplDX11_Init(pDevice, pContext);
@@ -353,11 +386,6 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
         State.TempPanicMode = false;
     }
 
-    if (!State.PanicMode && IsInGame() && !State.InMeeting)
-    {
-        Radar::CaptureMapPlayerPositions();
-    }
-
     if (!State.PanicMode && State.ShowMenu)
     {
         ImGuiRenderer::Submit([]() { Menu::Render(); });
@@ -366,6 +394,10 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
     if (!State.PanicMode && State.ShowConsole)
     {
         ImGuiRenderer::Submit([]() { ConsoleGui::Render(); });
+    }
+
+    if (!State.PanicMode) {
+        ImGuiRenderer::Submit([]() { Toasts::Render(); });
     }
 
     if (CanDrawEsp()) {
@@ -383,7 +415,9 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
             s_Cache.Window = ImGui::GetCurrentWindow();
 
             //Set window properties
-            ImGui::SetWindowPos({ 0, 0 }, ImGuiCond_Always);
+            float xOffset = (DirectX::GetWindowSize(true).x - DirectX::GetWindowSize(false).x) / 2.f;
+            float yOffset = (DirectX::GetWindowSize(true).y - DirectX::GetWindowSize(false).y) / 2.f;
+            ImGui::SetWindowPos({ xOffset, yOffset }, ImGuiCond_Always);
             ImGui::SetWindowSize(s_Cache.Winsize, ImGuiCond_Always);
 
             Esp::Render();
@@ -398,13 +432,15 @@ HRESULT __stdcall dPresent(IDXGISwapChain* __this, UINT SyncInterval, UINT Flags
 
     if (CanDrawRadar())
     {
-            ImGuiRenderer::Submit([]() { Radar::Render(); });
+        ImGuiRenderer::Submit([]() { Radar::Render(); });
     }
+    else State.HoveringOverAnyWindowButRadar = ImGui::GetIO().WantCaptureMouse;
+
+    if (!State.PanicMode && State.ShowKeybinds && (IsInGame() || IsInLobby()))
+        ImGuiRenderer::Submit([]() { RenderKeybinds(); });
 
     if (CanDrawMapPlayers())
-    {
         ImGuiRenderer::Submit([]() { Radar::RenderMapPlayers(); });
-    }
 
     if (CanDrawReplay())
     {

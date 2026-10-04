@@ -62,7 +62,7 @@ bool CustomListBoxInt(const char* label, int* value, const std::vector<const cha
 	return response;
 }
 
-bool CustomListBoxIntColored(const char* label, int* value, const std::vector<const char*> list, float width, ImVec4 col, ImGuiComboFlags flags, const char* visualLabel, const RoleColor* itemColors, size_t itemColorsCount)
+bool CustomListBoxIntColored(const char* label, int* value, const std::vector<const char*> list, float width, ImVec4 col, ImGuiComboFlags flags, const char* visualLabel, const ColorMapping* itemColors, size_t itemColorsCount)
 {
 	auto comboLabel = "##" + std::string(label);
 	auto leftArrow = "##" + std::string(label) + "Left";
@@ -78,8 +78,7 @@ bool CustomListBoxIntColored(const char* label, int* value, const std::vector<co
 		response = false;
 		for (size_t i = 0; i < list.size(); i++) {
 			const bool hasColor = itemColors != nullptr && i < itemColorsCount;
-			if (hasColor)
-				PushStyleColor(ImGuiCol_Text, itemColors[i].color);
+			if (hasColor) PushStyleColor(ImGuiCol_Text, itemColors[i].color);
 
 			bool is_selected = (*value == i);
 			if (Selectable(list.at(i), is_selected)) {
@@ -87,10 +86,8 @@ bool CustomListBoxIntColored(const char* label, int* value, const std::vector<co
 				response = true;
 			}
 
-			if (hasColor)
-				PopStyleColor();
-			if (is_selected)
-				SetItemDefaultFocus();
+			if (hasColor) PopStyleColor();
+			if (is_selected) SetItemDefaultFocus();
 		}
 		EndCombo();
 	}
@@ -895,7 +892,7 @@ bool AnimatedButton(const char* label, bool isAffectedBySearch, const ImVec2& si
 	ImGuiWindow* window = ImGui::GetCurrentWindow();
 	if (window->SkipItems)
 		return false;
-
+	
 	ImGuiID id = ImGui::GetID(label);
 	ImVec2 pos = ImGui::GetCursorScreenPos();
 	const char* label_end = ImGui::FindRenderedTextEnd(label);

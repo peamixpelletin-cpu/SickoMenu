@@ -24,7 +24,6 @@ bool HookFunction(PVOID* ppPointer, PVOID pDetour, const char* functionName) {
 }
 
 #define HOOKFUNC(n) if (!HookFunction(&(PVOID&)n, d ## n, #n)) return;
-#define OPTIONAL_HOOKFUNC(n) if (n && !HookFunction(&(PVOID&)n, d ## n, #n)) return;
 
 bool UnhookFunction(PVOID* ppPointer, PVOID pDetour, const char* functionName) {
 	if (const auto error = DetourDetach(ppPointer, pDetour); error != NO_ERROR) {
@@ -36,7 +35,6 @@ bool UnhookFunction(PVOID* ppPointer, PVOID pDetour, const char* functionName) {
 }
 
 #define UNHOOKFUNC(n) if (!UnhookFunction(&(PVOID&)n, d ## n, #n)) return;
-#define OPTIONAL_UNHOOKFUNC(n) if (n && !UnhookFunction(&(PVOID&)n, d ## n, #n)) return;
 
 void DetourInitilization() {
 	DetourTransactionBegin();
@@ -210,7 +208,6 @@ void DetourInitilization() {
 	HOOKFUNC(PlatformSpecificData_Serialize);
 	HOOKFUNC(Constants_1_GetBroadcastVersion);
 	HOOKFUNC(Constants_1_IsVersionModded);
-	HOOKFUNC(PlatformSpecificData_Serialize);
 	HOOKFUNC(LogicGameFlowNormal_IsGameOverDueToDeath);
 	HOOKFUNC(LogicGameFlowHnS_IsGameOverDueToDeath);
 	HOOKFUNC(PlayerControl_CoSetRole);
@@ -246,14 +243,14 @@ void DetourInitilization() {
 	HOOKFUNC(PlayerPhysics_RpcExitVent);
 	HOOKFUNC(PlayerControl_IsFlashlightEnabled);
 	HOOKFUNC(PlayerControl_OnDestroy);
+	if (MapBehaviour_ShowNormalMap) { HOOKFUNC(MapBehaviour_ShowNormalMap); }
+	if (MapBehaviour_ShowInfectedMap) { HOOKFUNC(MapBehaviour_ShowInfectedMap); }
+	if (MapBehaviour_ShowSabotageMap) { HOOKFUNC(MapBehaviour_ShowSabotageMap); }
+	if (MapBehaviour_Close) { HOOKFUNC(MapBehaviour_Close); }
+	if (MapBehaviour_OnEnable) { HOOKFUNC(MapBehaviour_OnEnable); }
+	if (MapBehaviour_OnDisable) { HOOKFUNC(MapBehaviour_OnDisable); }
 	HOOKFUNC(MapCountOverlay_OnEnable);
 	HOOKFUNC(MapCountOverlay_OnDisable);
-	OPTIONAL_HOOKFUNC(MapBehaviour_ShowNormalMap);
-	OPTIONAL_HOOKFUNC(MapBehaviour_ShowInfectedMap);
-	OPTIONAL_HOOKFUNC(MapBehaviour_ShowSabotageMap);
-	OPTIONAL_HOOKFUNC(MapBehaviour_Close);
-	OPTIONAL_HOOKFUNC(MapBehaviour_OnEnable);
-	OPTIONAL_HOOKFUNC(MapBehaviour_OnDisable);
 	HOOKFUNC(BanMenu_Select);
 	HOOKFUNC(IntroCutscene_ShowTeam);
 	HOOKFUNC(LogicOptionsHnS_GetCrewmateLeadTime);
@@ -308,7 +305,19 @@ void DetourInitilization() {
 	HOOKFUNC(GameManager_ReviveEveryoneFreeplay);
 	HOOKFUNC(PlayerControl_Die);
 	HOOKFUNC(PlayerVoteArea_SetCosmetics);
+	HOOKFUNC(PlayerPhysics_BootFromVent);
 	HOOKFUNC(PlayerControl_SetKillTimer);
+	HOOKFUNC(VentilationSystem_UpdateSystem);
+	HOOKFUNC(InnerNetClient_SetEndpoint);
+	HOOKFUNC(NotificationPopper_AddDisconnectMessage);
+	HOOKFUNC(PlayerControl_CheckColor);
+	HOOKFUNC(PlayerPhysics_HandleRpc);
+	HOOKFUNC(LobbyNotificationMessage_SetUp);
+	HOOKFUNC(NetworkedPlayerInfo_UpdateNamePlate);
+	HOOKFUNC(GameStartManager_ResetStartState);
+	HOOKFUNC(CustomNetworkTransform_HandleRpc);
+	HOOKFUNC(PlayerControl_CmdCheckUseZipline);
+	HOOKFUNC(SpiritGuideRole_FixedUpdate);
 
 	if (!HookFunction(&(PVOID&)oPresent, dPresent, "D3D_PRESENT_FUNCTION")) return;
 
@@ -431,7 +440,6 @@ void DetourUninitialization()
 	UNHOOKFUNC(PlatformSpecificData_Serialize);
 	UNHOOKFUNC(Constants_1_GetBroadcastVersion);
 	UNHOOKFUNC(Constants_1_IsVersionModded);
-	UNHOOKFUNC(PlatformSpecificData_Serialize);
 	UNHOOKFUNC(LogicGameFlowNormal_IsGameOverDueToDeath);
 	UNHOOKFUNC(LogicGameFlowHnS_IsGameOverDueToDeath);
 	UNHOOKFUNC(PlayerControl_CoSetRole);
@@ -467,14 +475,14 @@ void DetourUninitialization()
 	UNHOOKFUNC(PlayerPhysics_RpcExitVent);
 	UNHOOKFUNC(PlayerControl_IsFlashlightEnabled);
 	UNHOOKFUNC(PlayerControl_OnDestroy);
+	if (MapBehaviour_ShowNormalMap) { UNHOOKFUNC(MapBehaviour_ShowNormalMap); }
+	if (MapBehaviour_ShowInfectedMap) { UNHOOKFUNC(MapBehaviour_ShowInfectedMap); }
+	if (MapBehaviour_ShowSabotageMap) { UNHOOKFUNC(MapBehaviour_ShowSabotageMap); }
+	if (MapBehaviour_Close) { UNHOOKFUNC(MapBehaviour_Close); }
+	if (MapBehaviour_OnEnable) { UNHOOKFUNC(MapBehaviour_OnEnable); }
+	if (MapBehaviour_OnDisable) { UNHOOKFUNC(MapBehaviour_OnDisable); }
 	UNHOOKFUNC(MapCountOverlay_OnEnable);
 	UNHOOKFUNC(MapCountOverlay_OnDisable);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_ShowNormalMap);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_ShowInfectedMap);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_ShowSabotageMap);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_Close);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_OnEnable);
-	OPTIONAL_UNHOOKFUNC(MapBehaviour_OnDisable);
 	UNHOOKFUNC(BanMenu_Select);
 	UNHOOKFUNC(IntroCutscene_ShowTeam);
 	UNHOOKFUNC(LogicOptionsHnS_GetCrewmateLeadTime);
@@ -526,7 +534,22 @@ void DetourUninitialization()
 	UNHOOKFUNC(GameManager_ReviveEveryoneFreeplay);
 	UNHOOKFUNC(PlayerControl_Die);
 	UNHOOKFUNC(PlayerVoteArea_SetCosmetics);
+	UNHOOKFUNC(PlayerPhysics_BootFromVent);
 	UNHOOKFUNC(PlayerControl_SetKillTimer);
+	UNHOOKFUNC(VentilationSystem_UpdateSystem);
+	UNHOOKFUNC(InnerNetClient_SetEndpoint);
+	UNHOOKFUNC(NotificationPopper_AddDisconnectMessage);
+	UNHOOKFUNC(PlayerControl_CheckColor);
+	UNHOOKFUNC(PlayerPhysics_HandleRpc);
+	UNHOOKFUNC(LobbyNotificationMessage_SetUp);
+	UNHOOKFUNC(NetworkedPlayerInfo_UpdateNamePlate);
+	UNHOOKFUNC(GameStartManager_ResetStartState);
+	UNHOOKFUNC(CustomNetworkTransform_HandleRpc);
+	UNHOOKFUNC(PlayerControl_CmdCheckUseZipline);
+	UNHOOKFUNC(SpiritGuideRole_FixedUpdate);
+	UNHOOKFUNC(ScientistRole_Update);
+	UNHOOKFUNC(TrackerRole_FixedUpdate);
+	UNHOOKFUNC(DetectiveRole_FixedUpdate);
 
 	if (DetourDetach(&(PVOID&)oPresent, dPresent) != 0) return;
 

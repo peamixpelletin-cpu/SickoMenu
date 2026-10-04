@@ -9,8 +9,8 @@ SickoLogger Log;
 void SickoLogger::Create()
 {
 	const auto path = getModulePath(NULL);
-	const auto logPath = path.parent_path() / "sicko-log.txt";
-	const auto prevLogPath = path.parent_path() / "sicko-prev-log.txt";
+	const auto logPath = path.parent_path() / "SickoMenu" / "sicko-log.txt";
+	const auto prevLogPath = path.parent_path() / "SickoMenu" / "sicko-prev-log.txt";
 
 	std::error_code errCode;
 	std::filesystem::remove(prevLogPath, errCode);

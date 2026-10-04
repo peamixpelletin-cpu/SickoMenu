@@ -9,11 +9,17 @@
 
 Settings State;
 
-void Settings::Load() {
-    this->SickoVersion = "v5.0.1";
+static std::string CleanChatPresetName(std::string cpName) {
+    cpName.erase(std::remove(cpName.begin(), cpName.end(), ' '), cpName.end());
+    cpName.erase(std::remove(cpName.begin(), cpName.end(), '\n'), cpName.end());
+    return cpName;
+}
 
-    auto path = getModulePath(hModule);
-    auto configPath = path.parent_path() / "sicko-selected-config.json";
+void Settings::Load() {
+    this->SickoVersion = "v5.1.1";
+
+    auto path = getModulePath(NULL);
+    auto configPath = path.parent_path() / "SickoMenu" / "sicko-selected-config.json";
 
     if (!std::filesystem::exists(configPath)) {
         Save();
@@ -36,8 +42,7 @@ void Settings::Load() {
         //Log.Info("Unable to load sicko-selected-config.json");
     }
 
-    auto settingsPath = path.parent_path() / std::format("sicko-config/{}.json", this->selectedConfig);
-
+    auto settingsPath = path.parent_path() / "SickoMenu" / "sicko-config" / std::format("{}.json", this->selectedConfig);
     if (!std::filesystem::exists(settingsPath))
         return;
 
@@ -54,13 +59,12 @@ void Settings::Load() {
 
         JSON_TRYGET("HasOpenedMenuBefore", this->HasOpenedMenuBefore);
         JSON_TRYGET("ShowMenuOnStartup", this->ShowMenuOnStartup);
-        if (this->ShowMenuOnStartup) JSON_TRYGET("ShowMenu", this->ShowMenuOnStartup);
+        JSON_TRYGET("ShowMenuOnStartup", this->ShowMenu);
         JSON_TRYGET("KeyBinds", this->KeyBinds);
 #ifdef _DEBUG
         JSON_TRYGET("ShowDebug", this->showDebugTab);
 #endif
         JSON_TRYGET("dpiScale", this->dpiScale);
-        this->dpiChanged = true;
         JSON_TRYGET("RgbTheme", this->RgbMenuTheme);
         JSON_TRYGET("GradientTheme", this->GradientMenuTheme);
         JSON_TRYGET("MatchBackgroundWithTheme", this->MatchBackgroundWithTheme);
@@ -97,6 +101,13 @@ void Settings::Load() {
         JSON_TRYGET("FakePsnId", this->FakePsnId);
         JSON_TRYGET("SpoofXboxId", this->SpoofXboxId);
         JSON_TRYGET("FakeXboxId", this->FakeXboxId);
+        JSON_TRYGET("SpoofPlName", this->SpoofPlName);
+        JSON_TRYGET("FakePlName", this->FakePlName);
+        JSON_TRYGET("UseCustomServer", this->UseCustomServer);
+        JSON_TRYGET("FakePlName", this->FakePlName);
+        JSON_TRYGET("CustomServerIp", this->CustomServerIp);
+        JSON_TRYGET("CustomServerPort", this->CustomServerPort);
+        JSON_TRYGET("ForceDTLS", this->ForceDTLS);
         JSON_TRYGET("SpoofGuestAccount", this->SpoofGuestAccount);
         // JSON_TRYGET("SpoofAUVersion_", this->SpoofAUVersion); // putting an underscore to reset version spoofing, remove to reset again
         // JSON_TRYGET("FakeAUVersion_", this->FakeAUVersion);
@@ -108,6 +119,11 @@ void Settings::Load() {
         JSON_TRYGET("RoundingRadiusMultiplier", this->RoundingRadiusMultiplier);
         this->RoundingRadiusMultiplier = std::clamp(this->RoundingRadiusMultiplier, 0.f, 2.f);
         JSON_TRYGET("ExtraCommands", this->ExtraCommands);
+
+        JSON_TRYGET("ToastsOnTop", this->ToastsOnTop);
+        JSON_TRYGET("ToastPositionX", this->ToastPositionX);
+        JSON_TRYGET("MaxToasts", this->MaxToasts);
+        JSON_TRYGET("ToastMaxDuration", this->ToastMaxDuration);
 
         // JSON_TRYGET("NoAbilityCD", this->NoAbilityCD);
         JSON_TRYGET("DarkMode", this->DarkMode);
@@ -159,6 +175,7 @@ void Settings::Load() {
         JSON_TRYGET("FakeRoleId", this->FakeRoleId);
         JSON_TRYGET("AutoFakeRole", this->AutoFakeRole);
         JSON_TRYGET("PauseVentBlockingWhileVenting", this->PauseVentBlockingWhileVenting);
+        JSON_TRYGET("RandomSpawns", this->RandomSpawns);
 
         JSON_TRYGET("AutoApplyHostPreset", this->AutoApplyHostPreset);
         if (j.contains("HostPresets") && j["HostPresets"].is_array()) {
@@ -205,6 +222,7 @@ void Settings::Load() {
                 if (p.contains("ViperDissolveTime")) preset.ViperDissolveTime = p["ViperDissolveTime"].get<float>();
                 if (p.contains("DetectiveSuspectLimit")) preset.DetectiveSuspectLimit = p["DetectiveSuspectLimit"].get<float>();
                 if (p.contains("JudgeTaskRequirement")) preset.JudgeTaskRequirement = p["JudgeTaskRequirement"].get<float>();
+                if (p.contains("InfluencerMessageCooldown")) preset.InfluencerMessageCooldown = p["InfluencerMessageCooldown"].get<float>();
                 if (p.contains("RoleRates") && p["RoleRates"].is_array()) {
                     for (auto& r : p["RoleRates"]) {
                         if (r.contains("Role") && r.contains("Count") && r.contains("Chance")) {
@@ -237,6 +255,7 @@ void Settings::Load() {
         JSON_TRYGET("DisableMeetings", this->DisableMeetings);
         JSON_TRYGET("DisableSabotages", this->DisableSabotages);
         JSON_TRYGET("DisableAllVotekicks", this->DisableAllVotekicks);
+        JSON_TRYGET("AutoRejoinOnKick", this->AutoRejoinOnKick);
         JSON_TRYGET("DisableRoleManager", this->DisableRoleManager);
 
         JSON_TRYGET("ShowRadar", this->ShowRadar);
@@ -267,7 +286,12 @@ void Settings::Load() {
         JSON_TRYGET("ReplayClearAfterMeeting", this->Replay_ClearAfterMeeting);
 
         JSON_TRYGET("ShowEsp", this->ShowEsp);
+        JSON_TRYGET("ShowEsp_Players", this->ShowEsp_Players);
         JSON_TRYGET("ShowEsp_Ghosts", this->ShowEsp_Ghosts);
+        JSON_TRYGET("ShowEsp_DeadBodies", this->ShowEsp_DeadBodies);
+        JSON_TRYGET("ShowEsp_LineTextShadows", this->ShowEsp_LineTextShadows);
+        JSON_TRYGET("ShowEsp_LineThickness", this->ShowEsp_LineThickness);
+        JSON_TRYGET("ShowEsp_TextSize", this->ShowEsp_TextSize);
         JSON_TRYGET("ShowEsp_Box", this->ShowEsp_Box);
         JSON_TRYGET("ShowEsp_Tracers", this->ShowEsp_Tracers);
         JSON_TRYGET("ShowEsp_Distance", this->ShowEsp_Distance);
@@ -298,6 +322,7 @@ void Settings::Load() {
         JSON_TRYGET("ChatAlwaysActive", this->ChatAlwaysActive);
         JSON_TRYGET("ReadGhostMessages", this->ReadGhostMessages);
         JSON_TRYGET("ReadAndSendSickoChat", this->ReadAndSendSickoChat);
+        JSON_TRYGET("MoveMatchInfoGuide", this->MoveMatchInfoGuide);
         JSON_TRYGET("CustomName", this->CustomName);
         JSON_TRYGET("RgbName", this->RgbName);
         JSON_TRYGET("RgbMethod", this->RgbMethod);
@@ -335,6 +360,7 @@ void Settings::Load() {
         JSON_TRYGET("NameColor2_G", this->NameColor2.y);
         JSON_TRYGET("NameColor2_B", this->NameColor2.z);
         JSON_TRYGET("NameColor2_A", this->NameColor2.w);
+        JSON_TRYGET("AutoStartTimer", this->AutoStartTimer);
         JSON_TRYGET("AutoOpenDoors", this->AutoOpenDoors);
         JSON_TRYGET("MoveInVentAndShapeshift", this->MoveInVentAndShapeshift);
         JSON_TRYGET("AlwaysMove", this->AlwaysMove);
@@ -367,6 +393,7 @@ void Settings::Load() {
         JSON_TRYGET("BetterChatNotifications", this->BetterChatNotifications);
         JSON_TRYGET("BetterLobbyCodeInput", this->BetterLobbyCodeInput);
         JSON_TRYGET("BetterMessageSounds", this->BetterMessageSounds);
+        JSON_TRYGET("ExtendedNotifications", this->ExtendedNotifications);
         JSON_TRYGET("NoClip", this->NoClip);
         JSON_TRYGET("KillInLobbies", this->KillInLobbies);
         JSON_TRYGET("KillInVanish", this->KillInVanish);
@@ -381,6 +408,7 @@ void Settings::Load() {
         JSON_TRYGET("ImpostorCount", this->ImpostorCount);
 
         if (this->ShowMenuOnStartup) JSON_TRYGET("ShowConsole", this->ShowConsole);
+        JSON_TRYGET("ShowConsoleEventsAsToasts", this->ShowConsoleEventsAsToasts);
         JSON_TRYGET("ShowUnityLogs", this->ShowUnityLogs);
         //JSON_TRYGET("ShowHookLogs", this->ShowHookLogs);
 
@@ -393,6 +421,7 @@ void Settings::Load() {
         JSON_TRYGET("RotateRadius", this->RotateRadius);
         JSON_TRYGET("RelativeTeleport", this->RelativeTeleport);
         JSON_TRYGET("IgnoreVentTpSelf", this->IgnoreVentTpSelf);
+        JSON_TRYGET("IgnoreZiplineSelf", this->IgnoreZiplineSelf);
         JSON_TRYGET("ShowKillCD", this->ShowKillCD);
 
         JSON_TRYGET("Confuser", this->confuser);
@@ -401,6 +430,14 @@ void Settings::Load() {
         JSON_TRYGET("ConfuseOnKill", this->confuseOnKill);
         JSON_TRYGET("ConfuseOnVent", this->confuseOnVent);
         JSON_TRYGET("ConfuseOnMeeting", this->confuseOnMeeting);
+
+        JSON_TRYGET("AntiExploit_DisconnectPenalties", this->AntiExploit_DisconnectPenalties);
+        JSON_TRYGET("AntiExploit_UnauthorizedSabotages", this->AntiExploit_UnauthorizedSabotages);
+        JSON_TRYGET("AntiExploit_UnauthorizedTeleports", this->AntiExploit_UnauthorizedTeleports);
+        JSON_TRYGET("AntiExploit_UnauthorizedZiplines", this->AntiExploit_UnauthorizedZiplines);
+        JSON_TRYGET("AntiExploit_AttemptToBan", this->AntiExploit_AttemptToBan);
+        JSON_TRYGET("AntiExploit_VotekicksAgainstSelfHost", this->AntiExploit_VotekicksAgainstSelfHost);
+        JSON_TRYGET("AntiExploit_CrashLobbyHost", this->AntiExploit_CrashLobbyHost);
 
         JSON_TRYGET("InfiniteMeetings", this->InfiniteMeetings);
         JSON_TRYGET("NoLadderZiplineCooldown", this->NoLadderZiplineCooldown);
@@ -414,6 +451,7 @@ void Settings::Load() {
         JSON_TRYGET("Judge_NoTaskRequirement", this->Judge_NoTaskRequirement);
         JSON_TRYGET("Judge_InfiniteOverrules", this->Judge_InfiniteOverrules);
         JSON_TRYGET("GuardianAngel_NoProtectCooldown", this->GuardianAngel_NoProtectCooldown);
+        JSON_TRYGET("Influencer_NoRefreshCooldown", this->Influencer_NoRefreshCooldown);
         JSON_TRYGET("Impostor_NoKillCooldown", this->Impostor_NoKillCooldown);
         JSON_TRYGET("Shapeshifter_InfiniteShapeshiftDuration", this->Shapeshifter_InfiniteShapeshiftDuration);
 
@@ -439,6 +477,8 @@ void Settings::Load() {
         JSON_TRYGET("Enable_SMAC", this->Enable_SMAC);
         JSON_TRYGET("SMAC_Punishment", this->SMAC_Punishment);
         JSON_TRYGET("SMAC_HostPunishment", this->SMAC_HostPunishment);
+        JSON_TRYGET("SMAC_ReasonPunishmentOverride", this->SMAC_ReasonPunishmentOverride);
+        JSON_TRYGET("SMAC_ReasonPunishmentOverrideHost", this->SMAC_ReasonPunishmentOverrideHost);
         JSON_TRYGET("SMAC_AddToBlacklist", this->SMAC_AddToBlacklist);
         JSON_TRYGET("SMAC_PunishBlacklist", this->SMAC_PunishBlacklist);
         JSON_TRYGET("SMAC_IgnoreWhitelist", this->SMAC_IgnoreWhitelist);
@@ -466,7 +506,24 @@ void Settings::Load() {
         JSON_TRYGET("SMAC_CheckBadWords", this->SMAC_CheckBadWords);
         JSON_TRYGET("SMAC_BadWords", this->SMAC_BadWords);
         JSON_TRYGET("SMAC_CheckFriendcode", this->SMAC_CheckFriendcode);
-        JSON_TRYGET("ChatPresets", this->ChatPresets);
+        if (j.contains("ChatPresets") && j["ChatPresets"].is_array()) {
+            this->ChatPresets.clear();
+            for (auto& p : j["ChatPresets"]) {
+                Settings::ChatPreset cp;
+                if (p.is_string()) {
+                    cp.Name = CleanChatPresetName(p.get<std::string>());
+                    cp.Messages = { p.get<std::string>() };
+                }
+                else {
+                    if (p.contains("Name")) cp.Name = CleanChatPresetName(p["Name"].get<std::string>());
+                    if (p.contains("Messages") && p["Messages"].is_array()) {
+                        cp.Messages.clear();
+                        for (auto& m : p["Messages"]) cp.Messages.push_back(m.get<std::string>());
+                    }
+                }
+                this->ChatPresets.push_back(cp);
+            }
+        }
 
         JSON_TRYGET("Mod_EnableModeration", this->Mod_EnableModeration);
         JSON_TRYGET("Mod_SickoSocials", this->Mod_SickoSocials);
@@ -474,6 +531,13 @@ void Settings::Load() {
         JSON_TRYGET("Mod_RoleMembers", this->Mod_RoleMembers);
         JSON_TRYGET("Mod_RolePermissions", this->Mod_RolePermissions);
         JSON_TRYGET("Mod_RoleRank", this->Mod_RoleRank);
+
+        if (this->Mod_RoleNames.empty() || this->Mod_RoleNames[0] != "Everyone") {
+            this->Mod_RoleNames.insert(this->Mod_RoleNames.begin(), "Everyone");
+            this->Mod_RoleMembers.insert(this->Mod_RoleMembers.begin(), {});
+            this->Mod_RolePermissions.insert(this->Mod_RolePermissions.begin(), {});
+            this->Mod_RoleRank.insert(this->Mod_RoleRank.begin(), 0);
+        }
         JSON_TRYGET("SMAC_CheckStartWords", this->SMAC_CheckStartWords);
         JSON_TRYGET("SMAC_StartWordsThreshold", this->SMAC_StartWordsThreshold);
         JSON_TRYGET("SMAC_StartWords", this->SMAC_StartWords);
@@ -487,6 +551,8 @@ void Settings::Load() {
         JSON_TRYGET("BypassVisualTasks", this->BypassVisualTasks);
         JSON_TRYGET("AutoHostRole", this->AutoHostRole);
         JSON_TRYGET("HostRoleToSet", this->HostRoleToSet);
+
+		JSON_TRYGET("AllowPreferredColor", this->AllowPreferredColor);
 
         JSON_TRYGET("WhitelistFriendCodes", this->WhitelistFriendCodes);
         JSON_TRYGET("BlacklistFriendCodes", this->BlacklistFriendCodes);
@@ -556,6 +622,10 @@ void Settings::Load() {
         JSON_TRYGET("JudgeColor_G", this->JudgeColor.y);
         JSON_TRYGET("JudgeColor_B", this->JudgeColor.z);
         JSON_TRYGET("JudgeColor_A", this->JudgeColor.w);
+        JSON_TRYGET("InfluencerColor_R", this->InfluencerColor.x);
+        JSON_TRYGET("InfluencerColor_G", this->InfluencerColor.y);
+        JSON_TRYGET("InfluencerColor_B", this->InfluencerColor.z);
+        JSON_TRYGET("InfluencerColor_A", this->InfluencerColor.w);
 
         JSON_TRYGET("HostColor_R", this->HostColor.x);
         JSON_TRYGET("HostColor_G", this->HostColor.y);
@@ -658,10 +728,14 @@ void Settings::Load() {
 }
 
 void Settings::SaveConfig() {
-    auto path = getModulePath(hModule);
-    std::filesystem::create_directory(path.parent_path() / "sicko-config");
+    auto path = getModulePath(NULL);
+    std::filesystem::create_directory(path.parent_path() / "SickoMenu" / "sicko-config");
 
-    auto configPath = path.parent_path() / "sicko-selected-config.json";
+    if (std::filesystem::exists(path / "sicko-selected-config.json")) {
+        std::filesystem::rename(path / "sicko-selected-config.json", path / "SickoMenu" / "sicko-selected-config.json");
+    }
+
+    auto configPath = path.parent_path() / "SickoMenu" / "sicko-selected-config.json";
 
     if (this->selectedConfig != "") {
         try {
@@ -679,10 +753,11 @@ void Settings::SaveConfig() {
 }
 
 void Settings::Save() {
-    auto path = getModulePath(hModule);
-    std::filesystem::create_directory(path.parent_path() / "sicko-config");
+    auto path = getModulePath(NULL);
 
-    auto configPath = path.parent_path() / "sicko-selected-config.json";
+    std::filesystem::create_directories(path.parent_path() / "SickoMenu" / "sicko-config");
+
+    auto configPath = path.parent_path() / "SickoMenu" / "sicko-selected-config.json";
 
     if (this->selectedConfig != "") {
         try {
@@ -696,8 +771,8 @@ void Settings::Save() {
         catch (...) {
             //Log.Info("Unable to save sicko-selected-config.json");
         }
-        auto settingsPath = path.parent_path() /
-            std::format("sicko-config/{}.json", GetAllConfigs().size() != 0 ? this->selectedConfig : "default");
+        auto settingsPath = path.parent_path() / "SickoMenu" / "sicko-config" /
+            std::format("{}.json", GetAllConfigs().size() != 0 ? this->selectedConfig : "default");
 
         try {
             nlohmann::ordered_json j = nlohmann::ordered_json{
@@ -747,6 +822,13 @@ void Settings::Save() {
                 { "FakePsnId", this->FakePsnId },
                 { "SpoofXboxId", this->SpoofXboxId },
                 { "FakeXboxId", this->FakeXboxId },
+                { "SpoofPlName", this->SpoofPlName},
+                { "FakePlName", this->FakePlName},
+                { "UseCustomServer", this->UseCustomServer},
+                { "CustomServerIp", this->CustomServerIp},
+                { "CustomServerPort", this->CustomServerPort},
+                { "ForceDTLS", this->ForceDTLS},
+
                 { "SpoofGuestAccount", this->SpoofGuestAccount },
                 // { "SpoofAUVersion_", this->SpoofAUVersion }, // putting an underscore to reset version spoofing, remove to reset again
                 // { "FakeAUVersion_", this->FakeAUVersion },
@@ -757,6 +839,11 @@ void Settings::Save() {
                 { "ShowUiBorders", this->ShowUiBorders },
                 { "RoundingRadiusMultiplier", this->RoundingRadiusMultiplier },
                 { "ExtraCommands", this->ExtraCommands },
+
+                { "ToastsOnTop", this->ToastsOnTop },
+                { "ToastPositionX", this->ToastPositionX },
+                { "MaxToasts", this->MaxToasts },
+                { "ToastMaxDuration", this->ToastMaxDuration },
 
                 // { "NoAbilityCD", this->NoAbilityCD },
                 { "DarkMode", this->DarkMode },
@@ -809,11 +896,13 @@ void Settings::Save() {
                 { "FakeRoleId", this->FakeRoleId },
                 { "AutoFakeRole", this->AutoFakeRole },
                 { "PauseVentBlockingWhileVenting", this->PauseVentBlockingWhileVenting },
+                { "RandomSpawns", this->RandomSpawns },
 
                 { "NoGameEnd", this->NoGameEnd },
                 { "DisableMeetings", this->DisableMeetings },
                 { "DisableSabotages", this->DisableSabotages },
                 { "DisableAllVotekicks", this->DisableAllVotekicks },
+                { "AutoRejoinOnKick", this->AutoRejoinOnKick },
                 { "DisableRoleManager", this->DisableRoleManager },
 
                 { "ShowRadar", this->ShowRadar },
@@ -888,6 +977,7 @@ void Settings::Save() {
                             { "ViperDissolveTime", p.ViperDissolveTime },
                             { "DetectiveSuspectLimit", p.DetectiveSuspectLimit },
                             { "JudgeTaskRequirement", p.JudgeTaskRequirement },
+                            { "InfluencerMessageCooldown", p.InfluencerMessageCooldown },
                             { "RoleRates", [&]() {
                                 nlohmann::json rarr = nlohmann::json::array();
                                 for (auto& [role, rp] : p.RoleRates) {
@@ -911,7 +1001,12 @@ void Settings::Save() {
                     return arr;
                 }() },
                 { "ShowEsp", this->ShowEsp },
+                { "ShowEsp_Players", this->ShowEsp_Players },
                 { "ShowEsp_Ghosts", this->ShowEsp_Ghosts },
+                { "ShowEsp_DeadBodies", this->ShowEsp_DeadBodies },
+                { "ShowEsp_LineTextShadows", this->ShowEsp_LineTextShadows },
+                { "ShowEsp_LineThickness", this->ShowEsp_LineThickness },
+                { "ShowEsp_TextSize", this->ShowEsp_TextSize },
                 { "ShowEsp_Box", this->ShowEsp_Box },
                 { "ShowEsp_Tracers", this->ShowEsp_Tracers },
                 { "ShowEsp_Distance", this->ShowEsp_Distance },
@@ -942,6 +1037,7 @@ void Settings::Save() {
                 { "ChatAlwaysActive", this->ChatAlwaysActive },
                 { "ReadGhostMessages", this->ReadGhostMessages },
                 { "ReadAndSendSickoChat", this->ReadAndSendSickoChat },
+                { "MoveMatchInfoGuide", this->MoveMatchInfoGuide },
                 { "CustomName", this->CustomName },
                 { "RgbName", this->RgbName },
                 { "RgbMethod", this->RgbMethod },
@@ -982,6 +1078,7 @@ void Settings::Save() {
                 { "NameColor2_G", this->NameColor2.y },
                 { "NameColor2_B", this->NameColor2.z },
                 { "NameColor2_A", this->NameColor2.w },
+                { "AutoStartTimer", this->AutoStartTimer },
                 { "AutoOpenDoors", this->AutoOpenDoors },
                 { "MoveInVentAndShapeshift", this->MoveInVentAndShapeshift },
                 { "AlwaysMove", this->AlwaysMove },
@@ -1014,6 +1111,7 @@ void Settings::Save() {
                 { "BetterChatNotifications", this->BetterChatNotifications },
                 { "BetterLobbyCodeInput", this->BetterLobbyCodeInput },
                 { "BetterMessageSounds", this->BetterMessageSounds },
+                { "ExtendedNotifications", this->ExtendedNotifications },
                 { "NoClip", this->NoClip },
                 { "KillInLobbies", this->KillInLobbies },
                 { "KillInVanish", this->KillInVanish },
@@ -1031,6 +1129,7 @@ void Settings::Save() {
                 { "ImpostorCount", this->ImpostorCount },
 
                 { "ShowConsole", this->ShowConsole },
+                { "ShowConsoleEventsAsToasts", this->ShowConsoleEventsAsToasts },
                 { "ShowUnityLogs", this->ShowUnityLogs },
                 //{ "ShowHookLogs", this->ShowHookLogs },
 
@@ -1038,6 +1137,7 @@ void Settings::Save() {
                 { "RotateRadius", this->RotateRadius },
                 { "RelativeTeleport", this->RelativeTeleport },
                 { "IgnoreVentTpSelf", this->IgnoreVentTpSelf },
+                { "IgnoreZiplineSelf", this->IgnoreZiplineSelf },
                 { "ShowKillCD", this->ShowKillCD },
 
                 { "Confuser", this->confuser },
@@ -1046,6 +1146,14 @@ void Settings::Save() {
                 { "ConfuseOnKill", this->confuseOnKill },
                 { "ConfuseOnVent", this->confuseOnVent },
                 { "ConfuseOnMeeting", this->confuseOnMeeting },
+
+                { "AntiExploit_DisconnectPenalties", this->AntiExploit_DisconnectPenalties },
+                { "AntiExploit_UnauthorizedSabotages", this->AntiExploit_UnauthorizedSabotages },
+                { "AntiExploit_UnauthorizedTeleports", this->AntiExploit_UnauthorizedTeleports },
+                { "AntiExploit_UnauthorizedZiplines", this->AntiExploit_UnauthorizedZiplines },
+                { "AntiExploit_AttemptToBan", this->AntiExploit_AttemptToBan },
+                { "AntiExploit_VotekicksAgainstSelfHost", this->AntiExploit_VotekicksAgainstSelfHost },
+                { "AntiExploit_CrashLobbyHost", this->AntiExploit_CrashLobbyHost },
 
                 { "InfiniteMeetings", this->InfiniteMeetings },
                 { "NoLadderZiplineCooldown", this->NoLadderZiplineCooldown },
@@ -1059,6 +1167,7 @@ void Settings::Save() {
                 { "Judge_NoTaskRequirement", this->Judge_NoTaskRequirement },
                 { "Judge_InfiniteOverrules", this->Judge_InfiniteOverrules },
                 { "GuardianAngel_NoProtectCooldown", this->GuardianAngel_NoProtectCooldown },
+                { "Influencer_NoRefreshCooldown", this->Influencer_NoRefreshCooldown },
                 { "Impostor_NoKillCooldown", this->Impostor_NoKillCooldown },
                 { "Shapeshifter_InfiniteShapeshiftDuration", this->Shapeshifter_InfiniteShapeshiftDuration },
 
@@ -1083,6 +1192,8 @@ void Settings::Save() {
                 { "Enable_SMAC", this->Enable_SMAC },
                 { "SMAC_Punishment", this->SMAC_Punishment },
                 { "SMAC_HostPunishment", this->SMAC_HostPunishment },
+                { "SMAC_ReasonPunishmentOverride", this->SMAC_ReasonPunishmentOverride },
+                { "SMAC_ReasonPunishmentOverrideHost", this->SMAC_ReasonPunishmentOverrideHost },
                 { "SMAC_AddToBlacklist", this->SMAC_AddToBlacklist },
                 { "SMAC_PunishBlacklist", this->SMAC_PunishBlacklist },
                 { "SMAC_IgnoreWhitelist", this->SMAC_IgnoreWhitelist },
@@ -1110,7 +1221,13 @@ void Settings::Save() {
                 { "SMAC_CheckBadWords", this->SMAC_CheckBadWords },
                 { "SMAC_BadWords", this->SMAC_BadWords },
                 { "SMAC_CheckFriendcode", this->SMAC_CheckFriendcode },
-                { "ChatPresets", this->ChatPresets },
+                { "ChatPresets", [&]() {
+                    nlohmann::json arr = nlohmann::json::array();
+                    for (auto& p : this->ChatPresets) {
+                        arr.push_back({ { "Name", p.Name }, { "Messages", p.Messages } });
+                    }
+                    return arr;
+                    }() },
 
                 { "Mod_EnableModeration", this->Mod_EnableModeration },
                 { "Mod_SickoSocials", this->Mod_SickoSocials },
@@ -1130,6 +1247,8 @@ void Settings::Save() {
                 { "BypassVisualTasks", this->BypassVisualTasks },
                 { "AutoHostRole", this->AutoHostRole },
                 { "HostRoleToSet", this->HostRoleToSet },
+
+				{ "AllowPreferredColor", this->AllowPreferredColor},
 
                 { "WhitelistFriendCodes", this->WhitelistFriendCodes },
                 { "BlacklistFriendCodes", this->BlacklistFriendCodes },
@@ -1199,6 +1318,10 @@ void Settings::Save() {
                 { "JudgeColor_G", this->JudgeColor.y },
                 { "JudgeColor_B", this->JudgeColor.z },
                 { "JudgeColor_A", this->JudgeColor.w },
+                { "InfluencerColor_R", this->InfluencerColor.x },
+                { "InfluencerColor_G", this->InfluencerColor.y },
+                { "InfluencerColor_B", this->InfluencerColor.z },
+                { "InfluencerColor_A", this->InfluencerColor.w },
                 { "HostColor_R", this->HostColor.x },
                 { "HostColor_G", this->HostColor.y },
                 { "HostColor_B", this->HostColor.z },
@@ -1313,9 +1436,9 @@ void Settings::Save() {
 }
 
 void Settings::Delete() {
-    auto path = getModulePath(hModule);
+    auto path = getModulePath(NULL);
 
-    auto configPath = path.parent_path() / std::format("sicko-config/{}.json", this->selectedConfig);
+    auto configPath = path.parent_path() / "SickoMenu" / "sicko-config" / std::format("{}.json", this->selectedConfig);
 
     std::filesystem::remove(configPath);
 }

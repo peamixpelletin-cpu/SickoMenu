@@ -1,6 +1,7 @@
 #include "pch-il2cpp.h"
 #include "_hooks.h"
 #include "state.hpp"
+#include "toasts.hpp"
 #include "utility.h"
 #include "game.h"
 
@@ -113,7 +114,7 @@ void dHudManager_Update(HudManager* __this, MethodInfo* method) {
             bChatAlwaysActivePrevious = State.ChatAlwaysActive;
         }
         if (__this->fields.PlayerCam)
-            __this->fields.PlayerCam->fields.Locked = State.FreeCam && !State.PanicMode;
+            __this->fields.PlayerCam->fields.Locked = (State.FreeCam || State.ControlPet) && !State.PanicMode;
 
 
         static bool DisableActivation = false; //so a ghost seek button doesn't show up
@@ -144,7 +145,7 @@ void dHudManager_Update(HudManager* __this, MethodInfo* method) {
             GameObject* shadowLayerObject = Component_get_gameObject((Component_1*)__this->fields.ShadowQuad, NULL);
             float camHeight = State.FollowerCam == NULL ? 3.f : Camera_get_orthographicSize(State.FollowerCam, NULL);
             bool hideZoomShadows = State.EnableZoom && !State.EnableZoom_ShowShadows;
-            bool shouldShowShadowQuad = (State.PanicMode || !(State.IsRevived || State.FreeCam || hideZoomShadows || State.playerToFollow.has_value() || State.Wallhack || (State.MaxVision && IsInLobby())))
+            bool shouldShowShadowQuad = (State.PanicMode || !(State.IsRevived || State.FreeCam || State.ControlPet || hideZoomShadows || State.playerToFollow.has_value() || State.Wallhack || (State.MaxVision && IsInLobby())))
                 && (localData != NULL && !localData->fields.IsDead);
             if (shadowLayerObject != NULL)
                 GameObject_SetActive(shadowLayerObject, shouldShowShadowQuad, NULL);
@@ -159,8 +160,10 @@ void dHudManager_Update(HudManager* __this, MethodInfo* method) {
                     State.PanicMode = false;
                     State.TempPanicMode = false;
                 }
-                if (!State.CanChangeOutfit && IsInLobby() && !State.PanicMode && State.confuser && State.confuseOnJoin)
+                if (!State.CanChangeOutfit && IsInLobby() && !State.PanicMode && State.confuser && State.confuseOnJoin) {
                     ControlAppearance(true);
+                    Toasts::AddToast("Confuser", "Randomized your outfit as you joined the lobby!", ImVec4(0.f, 1.f, 1.f, 1.f));
+                }
                 State.CanChangeOutfit = true;
                 if (State.ProGamer) {
                     std::string rofl = "sesaeler/uneMokciS/yta0g/moc.buhtig//:sptth morf unem eht dedaolnwod ev'uoy erus ekaM\n.uneMokciS fo noisrev dezirohtuanu na gnisu ma I";
@@ -215,12 +218,18 @@ void dHudManager_Update(HudManager* __this, MethodInfo* method) {
                         app::GameObject_SetActive(ImpostorVentButton, forceShowVentButton || (PlayerIsImpostor(localData) && GameOptions().GetGameMode() == GameModes__Enum::Normal), nullptr);
                     }
 
+                    static bool isVentKeybindTriggeredAlready = false;
+
                     if (kbjPlayer != NULL && forceShowVentButton &&
                         !(PlayerIsImpostor(localData) && GameOptions().GetGameMode() == GameModes__Enum::Normal) &&
-                        Player_GetButton(kbjPlayer, 50, NULL) &&
                         (PlayerControl_get_CanMove(*Game::pLocalPlayer, NULL) || (*Game::pLocalPlayer)->fields.inVent)) {
                         // 50 is the ID for the in-game vent keybind
-                        VentButton_DoClick((VentButton*)__this->fields.ImpostorVentButton, NULL);
+                        if (Player_GetButton(kbjPlayer, 50, NULL)) {
+                            if (!isVentKeybindTriggeredAlready)
+                                VentButton_DoClick((VentButton*)__this->fields.ImpostorVentButton, NULL);
+                            isVentKeybindTriggeredAlready = true;
+                        }
+                        else isVentKeybindTriggeredAlready = false;
                     }
                 }
 
@@ -233,29 +242,25 @@ void dHudManager_Update(HudManager* __this, MethodInfo* method) {
                         LOG_ERROR("Exception occured while fetching whether player is impostor or not.");
                     }
 
-                    for (auto player : GetAllPlayerControl())
-                    {
-                        auto playerInfo = GetPlayerData(player);
-                        if (!playerInfo) break; //This happens sometimes during loading
-
-                        if ((!IsInLobby()) && !State.PanicMode && State.KillImpostors && !playerInfo->fields.IsDead && amImpostor)
-                            playerInfo->fields.Role->fields.CanBeKilled = true;
-                        else if (PlayerIsImpostor(playerInfo))
-                            playerInfo->fields.Role->fields.CanBeKilled = false;
-                    }
                     GameObject* KillButton = app::Component_get_gameObject((Component_1*)__this->fields.KillButton, NULL);
                     if (KillButton != NULL && (IsInGame())) {
                         if (amImpostor || (!State.PanicMode && State.UnlockKillButton && (IsHost() || !State.SafeMode) && !localData->fields.IsDead)) {
                             app::GameObject_SetActive(KillButton, true, nullptr);
                             playerRole->fields.CanUseKillButton = true;
 
+                            static bool isKillKeybindTriggeredAlready = false;
+
                             if (kbjPlayer != NULL && !amImpostor &&
-                                Player_GetButton(kbjPlayer, 8, NULL) &&
                                 PlayerControl_get_CanMove(*Game::pLocalPlayer, NULL)) {
                                 // allow killing as crewmate
                                 __this->fields.KillButton->fields._.isCoolingDown = false;
                                 // 8 is the ID for the in-game kill keybind
-                                KillButton_DoClick(__this->fields.KillButton, NULL);
+                                if (Player_GetButton(kbjPlayer, 8, NULL)) {
+                                    if (!isKillKeybindTriggeredAlready)
+                                        KillButton_DoClick(__this->fields.KillButton, NULL);
+                                    isKillKeybindTriggeredAlready = true;
+                                }
+                                else isKillKeybindTriggeredAlready = false;
                             }
                         }
                         else {
@@ -566,13 +571,53 @@ void dEndGameManager_ShowButtons(EndGameManager* __this, MethodInfo* method) {
 
 void* dShhhBehaviour_PlayAnimation(ShhhBehaviour* __this, MethodInfo* method) {
     if (State.ShowHookLogs) Log.HookDebug("Hook dShhhBehaviour_Update executed", false);
-    if (!State.PanicMode && State.DisableShushAnimation) {
-        auto shhhEmblemObject = app::Component_get_gameObject((Component_1*)Game::HudManager.GetInstance()->fields.shhhEmblem, NULL);
-        if (shhhEmblemObject != NULL) {
-            GameObject_SetActive(shhhEmblemObject, false, NULL);
+    if (!State.PanicMode) {
+        if (State.confuser && State.confuseOnStart) {
+            ControlAppearance(true);
+            Toasts::AddToast("Confuser", "Randomized your outfit as the game started!", ImVec4(0.f, 1.f, 1.f, 1.f));
         }
-        return nullptr;
+
+        if (State.RandomSpawns) {
+            uint8_t ventCount = 1;
+            switch (State.mapType) {
+            case Settings::MapType::Ship:
+                ventCount = 14;
+                break;
+            case Settings::MapType::Hq:
+                ventCount = 11;
+                break;
+            case Settings::MapType::Pb:
+            case Settings::MapType::Airship:
+                ventCount = 12;
+                break;
+            case Settings::MapType::Fungle:
+                ventCount = 10;
+                break;
+            }
+            bool isHq = State.mapType == Settings::MapType::Hq;
+
+            for (auto p : GetAllPlayerControl()) {
+                int randomVentId = randi((int)isHq, ventCount - (int)(!isHq));
+
+                if (IsHost() || !State.SafeMode) {
+                    PlayerPhysics_RpcBootFromVent(p->fields.MyPhysics, randomVentId, NULL);
+                }
+                else {
+                    if (p == *Game::pLocalPlayer) State.AntiExploit_IsTeleportingSelf = true;
+                    SendBootVentNonHost(p, randomVentId);
+                }
+            }
+        }
+
+        if (State.DisableShushAnimation) {
+            auto shhhEmblemObject = app::Component_get_gameObject((Component_1*)Game::HudManager.GetInstance()->fields.shhhEmblem, NULL);
+            if (shhhEmblemObject != NULL) {
+                GameObject_SetActive(shhhEmblemObject, false, NULL);
+            }
+            return nullptr;
+        }
     }
+
     return ShhhBehaviour_PlayAnimation(__this, NULL);
 }
 
@@ -676,25 +721,25 @@ void dShadowCollab_OnEnable(ShadowCollab* __this, MethodInfo* method) {
 
 void dPassiveButton_ReceiveClickDown(PassiveButton* __this, MethodInfo* method) {
     if (State.ShowHookLogs) Log.HookDebug("Hook dPassiveButton_ReceiveClickDown executed", false);
-    if (!State.ClickThroughMenuUI && ImGui::GetIO().WantCaptureMouse) return;
+    if (!State.ClickThroughMenuUI && State.HoveringOverAnyWindowButRadar) return;
     PassiveButton_ReceiveClickDown(__this, method);
 }
 
 void dPassiveButton_ReceiveRepeatDown(PassiveButton* __this, MethodInfo* method) {
     if (State.ShowHookLogs) Log.HookDebug("Hook dPassiveButton_ReceiveRepeatDown executed", false);
-    if (!State.ClickThroughMenuUI && ImGui::GetIO().WantCaptureMouse) return;
+    if (!State.ClickThroughMenuUI && State.HoveringOverAnyWindowButRadar) return;
     PassiveButton_ReceiveRepeatDown(__this, method);
 }
 
 void dPassiveButton_ReceiveClickUp(PassiveButton* __this, MethodInfo* method) {
     if (State.ShowHookLogs) Log.HookDebug("Hook dPassiveButton_ReceiveClickUp executed", false);
-    if (!State.ClickThroughMenuUI && ImGui::GetIO().WantCaptureMouse) return;
+    if (!State.ClickThroughMenuUI && State.HoveringOverAnyWindowButRadar) return;
     PassiveButton_ReceiveClickUp(__this, method);
 }
 
 void dPassiveButton_ReceiveMouseOver(PassiveButton* __this, MethodInfo* method) {
     if (State.ShowHookLogs) Log.HookDebug("Hook dPassiveButton_ReceiveMouseOver executed", false);
-    if (!State.ClickThroughMenuUI && ImGui::GetIO().WantCaptureMouse) return;
+    if (!State.ClickThroughMenuUI && State.HoveringOverAnyWindowButRadar) return;
     PassiveButton_ReceiveMouseOver(__this, method);
 }
 
@@ -729,6 +774,8 @@ void dMatchInfoHudButton_Update(MatchInfoHudButton* __this, MethodInfo* method) 
 
     auto distanceFromEdge = GameObject_GetActive(chatGameObject, NULL) ?
         Vector3(2.75f, 0.505f, -400.f) : Vector3(2.15f, 0.505f, -400.f);
+
+    if (!State.PanicMode && State.MoveMatchInfoGuide) distanceFromEdge = Vector3(0.44f, 1.315f, -400.f);
 
     // these are the vectors that the game uses
 

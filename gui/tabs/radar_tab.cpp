@@ -9,11 +9,8 @@ namespace RadarTab {
 		ImGui::SameLine(100 * State.dpiScale);
 		ImGui::BeginChild("###Radar", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
 		ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
+		if (ToggleButton("Show Others in Map", &State.ShowRadar_OthersInMap)) State.Save();
 		if (ToggleButton("Show Radar", &State.ShowRadar)) {
-			State.Save();
-		}
-		ImGui::SameLine(0.f, 18.f * State.dpiScale);
-		if (ToggleButton("Show Others in Map", &State.ShowRadar_OthersInMap)) {
 			State.Save();
 		}
 
@@ -65,10 +62,14 @@ namespace RadarTab {
 			| ImGuiColorEditFlags_AlphaPreview)) {
 			State.Save();
 		}
+
+		ImGui::SetNextItemWidth(100.f * State.dpiScale);
 		if (ImGui::InputInt("Extra Width", &State.RadarExtraWidth)) {
 			State.RadarExtraWidth = abs(State.RadarExtraWidth); //prevent negatives
 			State.Save();
 		}
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(100.f * State.dpiScale);
 		if (ImGui::InputInt("Extra Height", &State.RadarExtraHeight)) {
 			State.RadarExtraHeight = abs(State.RadarExtraHeight); //prevent negatives
 			State.Save();

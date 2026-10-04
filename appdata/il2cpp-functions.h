@@ -8,6 +8,7 @@ DO_APP_FUNC(Type*, RuntimeType_MakeGenericType_1, (Type* gt, /*Type__Array**/voi
 DO_APP_FUNC(GameObject*, Component_get_gameObject, (Component_1* __this, MethodInfo* method), "UnityEngine.CoreModule, UnityEngine.GameObject UnityEngine.Component::get_gameObject()");
 DO_APP_FUNC(Transform*, Component_get_transform, (Component_1* __this, MethodInfo* method), "UnityEngine.CoreModule, UnityEngine.Transform UnityEngine.Component::get_transform()");
 
+DO_APP_FUNC(void, Object_Destroy, (Object_1* obj, MethodInfo* method), "UnityEngine.CoreModule, System.Void UnityEngine.Object::Destroy(UnityEngine.Object)");
 DO_APP_FUNC(void, Object_DestroyImmediate, (Object_1* obj, MethodInfo* method), "UnityEngine.CoreModule, System.Void UnityEngine.Object::DestroyImmediate(UnityEngine.Object)");
 DO_APP_FUNC(Component_1*, Component_GetComponent, (Component_1* __this, Type* type, MethodInfo* method), "UnityEngine.CoreModule, UnityEngine.Component UnityEngine.Component::GetComponent(System.Type)");
 
@@ -42,6 +43,8 @@ DO_APP_FUNC(float, Camera_get_orthographicSize, (Camera* __this, MethodInfo* met
 DO_APP_FUNC(float, Camera_get_aspect, (Camera* __this, MethodInfo* method), "UnityEngine.CoreModule, System.Single UnityEngine.Camera::get_aspect()");
 DO_APP_FUNC(Color, SpriteRenderer_get_color, (SpriteRenderer* __this, MethodInfo* method), "UnityEngine.CoreModule, UnityEngine.Color UnityEngine.SpriteRenderer::get_color()");
 DO_APP_FUNC(void, SpriteRenderer_set_color, (SpriteRenderer* __this, Color value, MethodInfo* method), "UnityEngine.CoreModule, System.Void UnityEngine.SpriteRenderer::set_color(UnityEngine.Color)");
+DO_APP_FUNC(Sprite*, SpriteRenderer_get_sprite, (SpriteRenderer* __this, MethodInfo* method), "UnityEngine.CoreModule, UnityEngine.Sprite UnityEngine.SpriteRenderer::get_sprite()");
+DO_APP_FUNC(void, SpriteRenderer_set_flipX, (SpriteRenderer* __this, bool value, MethodInfo* method), "UnityEngine.CoreModule, System.Void UnityEngine.SpriteRenderer::set_flipX(System.Boolean)");
 DO_APP_FUNC(float, Time_get_deltaTime, (MethodInfo* method), "UnityEngine.CoreModule, System.Single UnityEngine.Time::get_deltaTime()");
 DO_APP_FUNC(float, Time_get_fixedDeltaTime, (MethodInfo* method), "UnityEngine.CoreModule, System.Single UnityEngine.Time::get_fixedDeltaTime()");
 DO_APP_FUNC(float, Time_get_realtimeSinceStartup, (MethodInfo* method), "UnityEngine.CoreModule, System.Single UnityEngine.Time::get_realtimeSinceStartup()");
@@ -63,6 +66,7 @@ DO_APP_FUNC(bool, AutoOpenDoor_DoUpdate, (AutoOpenDoor* __this, float dt, Method
 DO_APP_FUNC(void, NoShadowBehaviour_SetMaskFunction, (NoShadowBehaviour* __this, int32_t func, MethodInfo* method), "Assembly-CSharp, System.Void NoShadowBehaviour::SetMaskFunction(System.Int32)");
 
 DO_APP_FUNC(Vector3, Camera_ScreenToWorldPoint, (Camera* __this, Vector3 position, MethodInfo* method), "UnityEngine.CoreModule, UnityEngine.Vector3 UnityEngine.Camera::ScreenToWorldPoint(UnityEngine.Vector3)");
+DO_APP_FUNC(Vector3, Camera_WorldToScreenPoint, (Camera* __this, Vector3 position, MethodInfo* method), "UnityEngine.CoreModule, UnityEngine.Vector3 UnityEngine.Camera::WorldToScreenPoint(UnityEngine.Vector3)");
 
 DO_APP_FUNC(void, CustomNetworkTransform_RpcSnapTo, (CustomNetworkTransform* __this, Vector2 position, MethodInfo* method), "Assembly-CSharp, System.Void CustomNetworkTransform::RpcSnapTo(UnityEngine.Vector2)");
 DO_APP_FUNC(void, CustomNetworkTransform_SnapTo, (CustomNetworkTransform* __this, Vector2 position, uint16_t minSid, MethodInfo* method), "Assembly-CSharp, System.Void CustomNetworkTransform::SnapTo(UnityEngine.Vector2, System.UInt16)");
@@ -125,6 +129,7 @@ DO_APP_FUNC(void*, PlayerControl_CoSetRole, (PlayerControl* __this, RoleTypes__E
 DO_APP_FUNC(void, PlayerControl_RpcSetScanner, (PlayerControl* __this, bool value, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::RpcSetScanner(System.Boolean)");
 DO_APP_FUNC(void, PlayerControl_SetScanner, (PlayerControl* __this, bool on, uint8_t cnt), "Assembly-CSharp, System.Void PlayerControl::SetScanner(System.Boolean, System.Byte)");
 DO_APP_FUNC(void, PlayerControl_CmdCheckColor, (PlayerControl* __this, uint8_t bodyColor, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::CmdCheckColor(System.Byte)");
+DO_APP_FUNC(void, PlayerControl_CheckColor, (PlayerControl* __this, uint8_t bodyColor, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::CheckColor(System.Byte)");
 DO_APP_FUNC(void, PlayerControl_RpcSetColor, (PlayerControl* __this, uint8_t bodyColor, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::RpcSetColor(System.Byte)");
 DO_APP_FUNC(void, PlayerControl_CmdCheckName, (PlayerControl* __this, String* name, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::CmdCheckName(System.String)");
 DO_APP_FUNC(void, PlayerControl_RpcSetLevel, (PlayerControl* __this, uint32_t level, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::RpcSetLevel(System.UInt32)");
@@ -176,6 +181,7 @@ DO_APP_FUNC(void*, Vent_ExitVent, (Vent* __this, PlayerControl* pc, MethodInfo* 
 DO_APP_FUNC(void, VentilationSystem_Update, (VentilationSystem_Operation__Enum op, int32_t ventId, MethodInfo* method), "Assembly-CSharp, System.Void VentilationSystem::Update(VentilationSystem.Operation, System.Int32)");
 
 DO_APP_FUNC(void, HudManager_Update, (HudManager* __this, MethodInfo* method), "Assembly-CSharp, System.Void HudManager::Update()");
+DO_APP_FUNC(void, HudManager_SetMapAndInfoButtonsEnabled, (HudManager* __this, bool enabled, MethodInfo* method), "Assembly-CSharp, System.Void HudManager::SetMapAndInfoButtonsEnabled(System.Boolean)");
 DO_APP_FUNC(void, HudManager_SetHudActive, (HudManager* __this, bool isActive, MethodInfo* method), "Assembly-CSharp, System.Void HudManager::SetHudActive(System.Boolean)");
 DO_APP_FUNC(void, ChatController_AddChat, (ChatController* __this, PlayerControl* sourcePlayer, String* chatText, bool censor, MethodInfo* method), "Assembly-CSharp, System.Void ChatController::AddChat(PlayerControl, System.String, System.Boolean)");
 DO_APP_FUNC(void, ChatController_AddChatWarning, (ChatController* __this, String* warningText, MethodInfo* method), "Assembly-CSharp, System.Void ChatController::AddChatWarning(System.String)");
@@ -225,6 +231,7 @@ DO_APP_FUNC(float, MessageReader_ReadSingle, (MessageReader* __this, MethodInfo*
 DO_APP_FUNC(String*, MessageReader_ReadString, (MessageReader* __this, MethodInfo* method), "Hazel, System.String Hazel.MessageReader::ReadString()");
 DO_APP_FUNC(Byte__Array*, MessageReader_ReadBytesAndSize, (MessageReader* __this, MethodInfo* method), "Hazel, System.Byte[] Hazel.MessageReader::ReadBytesAndSize()");
 DO_APP_FUNC(Byte__Array*, MessageReader_ReadBytes, (MessageReader* __this, int32_t length, MethodInfo* method), "Hazel, System.Byte[] Hazel.MessageReader::ReadBytes(System.Int32)");
+DO_APP_FUNC(uint16_t, MessageReader_ReadUInt16, (MessageReader* __this, MethodInfo* method), "Hazel, System.UInt16 Hazel.MessageReader::ReadUInt16()");
 DO_APP_FUNC(int32_t, MessageReader_get_BytesRemaining, (MessageReader* __this, MethodInfo* method), "Hazel, System.Int32 Hazel.MessageReader::get_BytesRemaining()");
 DO_APP_FUNC(void, MessageWriter_WriteBoolean, (MessageWriter* __this, bool value, MethodInfo* method), "Hazel, System.Void Hazel.MessageWriter::Write(System.Boolean)");
 DO_APP_FUNC(void, MessageWriter_WriteByte, (MessageWriter* __this, uint8_t value, MethodInfo* method), "Hazel, System.Void Hazel.MessageWriter::Write(System.Byte)");
@@ -286,7 +293,10 @@ DO_APP_FUNC(void, InnerNetClient_DisconnectInternal, (InnerNetClient* __this, Di
 DO_APP_FUNC(void, PlayerPhysics_FixedUpdate, (PlayerPhysics* __this, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPhysics::FixedUpdate()");
 DO_APP_FUNC(void, PlayerPhysics_RpcEnterVent, (PlayerPhysics* __this, int32_t id, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPhysics::RpcEnterVent(System.Int32)");
 DO_APP_FUNC(void, PlayerPhysics_RpcExitVent, (PlayerPhysics* __this, int32_t id, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPhysics::RpcExitVent(System.Int32)");
+DO_APP_FUNC(void, PlayerPhysics_BootFromVent, (PlayerPhysics* __this, int32_t ventId, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPhysics::BootFromVent(System.Int32)");
 DO_APP_FUNC(void, PlayerPhysics_RpcBootFromVent, (PlayerPhysics* __this, int32_t ventId, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPhysics::RpcBootFromVent(System.Int32)");
+DO_APP_FUNC(void, PlayerPhysics_HandleRpc, (PlayerPhysics* __this, uint8_t callId, MessageReader* reader, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPhysics::HandleRpc(System.Byte, Hazel.MessageReader)");
+DO_APP_FUNC(void, PlayerPhysics_RpcPet, (PlayerPhysics* __this, Vector2 pos, Vector2 petPos, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPhysics::RpcPet(UnityEngine.Vector2, UnityEngine.Vector2)");
 
 DO_APP_FUNC(void, PlayerControl_TurnOnProtection, (PlayerControl* __this, bool visible, int32_t colorId, int32_t guardianPlayerId, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::TurnOnProtection(System.Boolean, System.Int32, System.Int32)");
 DO_APP_FUNC(void, PlayerControl_RemoveProtection, (PlayerControl* __this, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::RemoveProtection()");
@@ -385,6 +395,7 @@ DO_APP_FUNC(int32_t, GameCode_GameNameToInt, (String* gameId, MethodInfo* method
 DO_APP_FUNC(PlayerStatsData*, PlayerData_get_Stats, (PlayerData* __this, MethodInfo* method), "Assembly-CSharp, AmongUs.Data.Player.PlayerStatsData AmongUs.Data.Player.PlayerData::get_Stats()");
 DO_APP_FUNC(void, AbstractSaveData_Save, (AbstractSaveData* __this, MethodInfo* method), "Assembly-CSharp, System.Void AmongUs.Data.AbstractSaveData::Save()");
 DO_APP_FUNC(void, ShipStatus_HandleRpc, (ShipStatus* __this, uint8_t callId, MessageReader* reader, MethodInfo* method), "Assembly-CSharp, System.Void ShipStatus::HandleRpc(System.Byte, Hazel.MessageReader)");
+DO_APP_FUNC(void, CustomNetworkTransform_HandleRpc, (CustomNetworkTransform* __this, uint8_t callId, MessageReader* reader, MethodInfo* method), "Assembly-CSharp, System.Void CustomNetworkTransform::HandleRpc(System.Byte, Hazel.MessageReader)");
 DO_APP_FUNC(Color, TMP_Text_get_color, (TMP_Text* __this, MethodInfo* method), "Unity.TextMeshPro, UnityEngine.Color TMPro.TMP_Text::get_color()");
 DO_APP_FUNC(void, TMP_Text_set_color, (TMP_Text* __this, Color value, MethodInfo* method), "Unity.TextMeshPro, System.Void TMPro.TMP_Text::set_color(UnityEngine.Color)");
 DO_APP_FUNC(void, TMP_Text_set_outlineColor, (TMP_Text* __this, Color32 value, MethodInfo* method), "Unity.TextMeshPro, System.Void TMPro.TMP_Text::set_outlineColor(UnityEngine.Color32)");
@@ -483,12 +494,6 @@ DO_APP_FUNC(void, HideAndSeekTimerBar_Update, (HideAndSeekTimerBar* __this, Meth
 DO_APP_FUNC(void, LobbyInfoPane_Update, (LobbyInfoPane* __this, MethodInfo* method), "Assembly-CSharp, System.Void LobbyInfoPane::Update()");
 DO_APP_FUNC(void, ShadowCollab_OnEnable, (ShadowCollab* __this, MethodInfo* method), "Assembly-CSharp, System.Void ShadowCollab::OnEnable()");
 DO_APP_FUNC(void, MapBehaviour_FixedUpdate, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::FixedUpdate()");
-DO_APP_FUNC(void, MapBehaviour_ShowNormalMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowNormalMap()");
-DO_APP_FUNC(void, MapBehaviour_ShowInfectedMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowInfectedMap()");
-DO_APP_FUNC(void, MapBehaviour_ShowSabotageMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowSabotageMap()");
-DO_APP_FUNC(void, MapBehaviour_Close, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::Close()");
-DO_APP_FUNC(void, MapBehaviour_OnEnable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnEnable()");
-DO_APP_FUNC(void, MapBehaviour_OnDisable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnDisable()");
 DO_APP_FUNC(void, RoomTracker_FixedUpdate, (RoomTracker* __this, MethodInfo* method), "Assembly-CSharp, System.Void RoomTracker::FixedUpdate()");
 DO_APP_FUNC(void, LogicGameFlowHnS_AdjustEscapeTimer, (LogicGameFlowHnS* __this, float timeDeduction, bool forceDirty, MethodInfo* method), "Assembly-CSharp, System.Void LogicGameFlowHnS::AdjustEscapeTimer(System.Single, System.Boolean)");
 DO_APP_FUNC(void, EngineerRole_FixedUpdate, (EngineerRole* __this, MethodInfo* method), "Assembly-CSharp, System.Void EngineerRole::FixedUpdate()");
@@ -498,6 +503,7 @@ DO_APP_FUNC(void, DetectiveRole_FixedUpdate, (DetectiveRole* __this, MethodInfo*
 DO_APP_FUNC(void, JudgeRole_set_HasAnOverruleUse, (JudgeRole* __this, bool value, MethodInfo* method), "Assembly-CSharp, System.Void JudgeRole::set_HasAnOverruleUse(System.Boolean)");
 DO_APP_FUNC(void, GuardianAngelRole_FixedUpdate, (GuardianAngelRole* __this, MethodInfo* method), "Assembly-CSharp, System.Void GuardianAngelRole::FixedUpdate()");
 DO_APP_FUNC(void, ShapeshifterRole_FixedUpdate, (ShapeshifterRole* __this, MethodInfo* method), "Assembly-CSharp, System.Void ShapeshifterRole::FixedUpdate()");
+DO_APP_FUNC(void, SpiritGuideRole_FixedUpdate, (SpiritGuideRole* __this, MethodInfo* method), "Assembly-CSharp, System.Void SpiritGuideRole::FixedUpdate()");
 DO_APP_FUNC(void, MatchInfoHudButton_Update, (MatchInfoHudButton* __this, MethodInfo* method), "Assembly-CSharp, System.Void MatchInfoHudButton::Update()");
 DO_APP_FUNC(void, MatchInfoGuide_Update, (MatchInfoGuide* __this, MethodInfo* method), "Assembly-CSharp, System.Void MatchInfoGuide::Update()");
 DO_APP_FUNC(void, MatchInfoGuide_CreatePlayerEntries, (MatchInfoGuide* __this, MethodInfo* method), "Assembly-CSharp, System.Void MatchInfoGuide::CreatePlayerEntries()");
@@ -508,7 +514,35 @@ DO_APP_FUNC(bool, MatchInfoGuide_get_IsActive, (MatchInfoGuide* __this, MethodIn
 DO_APP_FUNC(void, PlayerVoteArea_SetCosmetics, (PlayerVoteArea* __this, NetworkedPlayerInfo* playerInfo, MethodInfo* method), "Assembly-CSharp, System.Void PlayerVoteArea::SetCosmetics(NetworkedPlayerInfo)");
 DO_APP_FUNC(void, PlayerControl_SetKillTimer, (PlayerControl* __this, float time, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::SetKillTimer(System.Single)");
 DO_APP_FUNC(bool, KillOverlay_get_IsOpen, (KillOverlay* __this, MethodInfo* method), "Assembly-CSharp, System.Boolean KillOverlay::get_IsOpen()");
+DO_APP_FUNC(void, VentilationSystem_UpdateSystem, (VentilationSystem* __this, PlayerControl* player, MessageReader* msgReader, MethodInfo* method), "Assembly-CSharp, System.Void VentilationSystem::UpdateSystem(PlayerControl, Hazel.MessageReader)");
+DO_APP_FUNC(void, LobbyNotificationMessage_SetUp, (LobbyNotificationMessage* __this, String* item, Sprite* icon, Color textColor, void* onDestroy, MethodInfo* method), "Assembly-CSharp, System.Void LobbyNotificationMessage::SetUp(System.String, UnityEngine.Sprite, UnityEngine.Color, System.Action)");
 
 DO_APP_FUNC(bool, Player_GetButton, (Player* __this, int32_t actionId, MethodInfo* method), "Rewired_Core, System.Boolean Rewired.Player::GetButton(System.Int32)");
 DO_APP_FUNC(void, KillButton_DoClick, (KillButton* __this, MethodInfo* method), "Assembly-CSharp, System.Void KillButton::DoClick()");
 DO_APP_FUNC(void, VentButton_DoClick, (VentButton* __this, MethodInfo* method), "Assembly-CSharp, System.Void VentButton::DoClick()");
+
+DO_APP_FUNC(void, InnerNetClient_SetEndpoint, (InnerNetClient* __this, String* addr, uint16_t port, bool dtls, MethodInfo* method), "Assembly-CSharp, System.Void InnerNet.InnerNetClient::SetEndpoint(System.String, System.UInt16, System.Boolean)");
+
+DO_APP_FUNC(void, PetBehaviour_SetGettingPet, (PetBehaviour* __this, bool petting, Vector2 petPos, MethodInfo* method), "Assembly-CSharp, System.Void PetBehaviour::SetGettingPet(System.Boolean, UnityEngine.Vector2)");
+DO_APP_FUNC(PlayerPettingHand*, CosmeticsLayer_get_PettingHand, (CosmeticsLayer* __this, MethodInfo* method), "Assembly-CSharp, PlayerPettingHand CosmeticsLayer::get_PettingHand()");
+DO_APP_FUNC(void, PlayerPettingHand_StartPet, (PlayerPettingHand* __this, PetBehaviour* pet, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPettingHand::StartPet(PetBehaviour)");
+DO_APP_FUNC(void, PlayerPettingHand_StopPetting, (PlayerPettingHand* __this, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPettingHand::StopPetting()");
+DO_APP_FUNC(void, PlayerPhysics_CancelPet, (PlayerPhysics* __this, MethodInfo* method), "Assembly-CSharp, System.Void PlayerPhysics::CancelPet()");
+
+DO_APP_FUNC(void, CosmeticsLayer_SetScale, (CosmeticsLayer* __this, Vector3 playerScale, Vector3 cosmeticsScale, MethodInfo* method), "Assembly-CSharp, System.Void CosmeticsLayer::SetScale(UnityEngine.Vector3, UnityEngine.Vector3)");
+DO_APP_FUNC(Vector3, PlayerAnimations_get_DefaultPlayerScale, (PlayerAnimations* __this, MethodInfo* method), "Assembly-CSharp, UnityEngine.Vector3 PlayerAnimations::get_DefaultPlayerScale()");
+
+DO_APP_FUNC(void*, CosmeticsCache_CoAddNameplate, (CosmeticsCache* __this, String* namePlateId, MethodInfo* method), "Assembly-CSharp, System.Collections.IEnumerator CosmeticsCache::CoAddNameplate(System.String)");
+DO_APP_FUNC(void, NetworkedPlayerInfo_UpdateNamePlate, (NetworkedPlayerInfo* __this, String* namePlate, MethodInfo* method), "Assembly-CSharp, System.Void NetworkedPlayerInfo::UpdateNamePlate(System.String)");
+DO_APP_FUNC(String*, CosmeticsLayer_GetColorBlindText, (CosmeticsLayer* __this, MethodInfo* method), "Assembly-CSharp, System.String CosmeticsLayer::GetColorBlindText()");
+
+DO_APP_FUNC(void, PlayerControl_RpcUseZipline, (PlayerControl* __this, PlayerControl* target, ZiplineBehaviour* ziplineBehaviour, bool fromTop, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::RpcUseZipline(PlayerControl, ZiplineBehaviour, System.Boolean)");
+DO_APP_FUNC(void, PlayerControl_CmdCheckUseZipline, (PlayerControl* __this, PlayerControl* target, ZiplineBehaviour* ziplineBehaviour, bool fromTop, MethodInfo* method), "Assembly-CSharp, System.Void PlayerControl::CmdCheckUseZipline(PlayerControl, ZiplineBehaviour, System.Boolean)");
+
+DO_APP_FUNC(void, ActionButton_SetCoolDown, (ActionButton* __this, float timer, float maxTimer, MethodInfo* method), "Assembly-CSharp, System.Void ActionButton::SetCoolDown(System.Single, System.Single)");
+DO_APP_FUNC(void, MapBehaviour_ShowNormalMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowNormalMap()");
+DO_APP_FUNC(void, MapBehaviour_ShowInfectedMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowInfectedMap()");
+DO_APP_FUNC(void, MapBehaviour_ShowSabotageMap, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::ShowSabotageMap()");
+DO_APP_FUNC(void, MapBehaviour_Close, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::Close()");
+DO_APP_FUNC(void, MapBehaviour_OnEnable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnEnable()");
+DO_APP_FUNC(void, MapBehaviour_OnDisable, (MapBehaviour* __this, MethodInfo* method), "Assembly-CSharp, System.Void MapBehaviour::OnDisable()");

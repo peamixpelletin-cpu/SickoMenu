@@ -4,6 +4,7 @@
 #include "gui-helpers.hpp"
 #include "utility.h"
 #include "state.hpp"
+#include "toasts.hpp"
 #include "logger.h"
 #include "_hooks.h"
 
@@ -15,6 +16,7 @@ namespace SelfTab {
         Utils,
         Roles,
         Randomizers,
+        AntiExploit,
         TextEditor
     };
 
@@ -22,6 +24,7 @@ namespace SelfTab {
     static bool openUtils = false;
     static bool openRoles = false;
     static bool openRandomizers = false;
+    static bool openAntiExploit = false;
     static bool openTextEditor = false;
 
     static std::string originalText = "";
@@ -55,6 +58,7 @@ namespace SelfTab {
         openUtils = group == Groups::Utils;
         openRoles = group == Groups::Roles;
         openRandomizers = group == Groups::Randomizers;
+        openAntiExploit = group == Groups::AntiExploit;
         openTextEditor = group == Groups::TextEditor;
     }
 
@@ -63,6 +67,7 @@ namespace SelfTab {
         else if (name == "Utils") CloseOtherGroups(Groups::Utils);
         else if (name == "Roles") CloseOtherGroups(Groups::Roles);
         else if (name == "Randomizers") CloseOtherGroups(Groups::Randomizers);
+        else if (name == "Anti-Exploit") CloseOtherGroups(Groups::AntiExploit);
         else if (name == "Text Editor") CloseOtherGroups(Groups::TextEditor);
     }
 
@@ -243,7 +248,7 @@ namespace SelfTab {
 
     void Render() {
         ImGui::SameLine(100 * State.dpiScale);
-        ImGui::BeginChild("###Self", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
+        ImGui::BeginChild("###SelfButtons", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
         if (TabGroup("Visuals", openVisuals)) {
             CloseOtherGroups(Groups::Visuals);
         }
@@ -260,10 +265,15 @@ namespace SelfTab {
             CloseOtherGroups(Groups::Randomizers);
         }
         ImGui::SameLine();
+        if (TabGroup("Anti-Exploit", openAntiExploit)) {
+            CloseOtherGroups(Groups::AntiExploit);
+        }
+        ImGui::SameLine();
         if (TabGroup("Text Editor", openTextEditor)) {
             CloseOtherGroups(Groups::TextEditor);
         }
 
+        ImGui::BeginChild("###Self", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
         if (openVisuals) {
             ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
             if (ToggleButton("Max Vision", &State.MaxVision)) {
@@ -340,6 +350,10 @@ namespace SelfTab {
             if (framesPassed == 0) State.RefreshChatButton = false;
             else framesPassed--;*/
 
+            if (ToggleButton("Move Match Info Guide HUD Button", &State.MoveMatchInfoGuide)) {
+                State.Save();
+            }
+
             if (/*!IsHost() && */State.SafeMode) {
                 ImGui::Text("Custom names are purely CLIENT-SIDED!");
             }
@@ -404,8 +418,8 @@ namespace SelfTab {
                 if (ToggleButton("Enable Prefix and Suffix", &State.UsePrefixAndSuffix)) State.Save();
                 if (ToggleButton("New Lines for Prefix and Suffix", &State.PrefixAndSuffixNewLines)) State.Save();
 
-                if (InputString("Name Prefix", &State.NamePrefix)) State.Save();
-                if (InputString("Name Suffix", &State.NameSuffix)) State.Save();
+                InputString("Name Prefix", &State.NamePrefix);
+                InputString("Name Suffix", &State.NameSuffix);
                 if (State.UsePrefixAndSuffix) ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), ("Note: Prefix and/or suffix will be cleared from the ends of the name if it contains them."));
                 if (State.UsePrefixAndSuffix) ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), ("This is done to prevent name overflowing."));
 
@@ -433,53 +447,35 @@ namespace SelfTab {
                 }
 
                 ImGui::SameLine();
-                if (ImGui::InputFloat("Name Size", &State.NameSize)) {
-                    State.Save();
-                }
+                ImGui::InputFloat("Name Size", &State.NameSize);
 
                 if (ToggleButton("Indent", &State.IndentName)) {
                     State.Save();
                 }
 
                 ImGui::SameLine();
-                if (ImGui::InputFloat("Name Indent", &State.NameIndent)) {
-                    State.Save();
-                }
+                ImGui::InputFloat("Name Indent", &State.NameIndent);
 
-                if (ToggleButton("Cspace", &State.CspaceName)) {
-                    State.Save();
-                }
+                ToggleButton("Cspace", &State.CspaceName);
 
                 ImGui::SameLine();
-                if (ImGui::InputFloat("Name Cspace", &State.NameCspace)) {
-                    State.Save();
-                }
+                ImGui::InputFloat("Name Cspace", &State.NameCspace);
 
-                if (ToggleButton("Mspace", &State.MspaceName)) {
-                    State.Save();
-                }
+                ToggleButton("Mspace", &State.MspaceName);
 
                 ImGui::SameLine();
-                if (ImGui::InputFloat("Name Mspace", &State.NameMspace)) {
-                    State.Save();
-                }
+                ImGui::InputFloat("Name Mspace", &State.NameMspace);
 
-                if (ToggleButton("Voffset", &State.VoffsetName)) {
-                    State.Save();
-                }
+                ToggleButton("Voffset", &State.VoffsetName);
 
                 ImGui::SameLine();
-                if (ImGui::InputFloat("Name Voffset", &State.NameVoffset)) {
-                    State.Save();
-                }
+                ImGui::InputFloat("Name Voffset", &State.NameVoffset);
                 if (ToggleButton("Rotate", &State.RotateName)) {
                     State.Save();
                 }
 
                 ImGui::SameLine();
-                if (ImGui::InputFloat("Rotation Angle", &State.NameRotate)) {
-                    State.Save();
-                }
+                ImGui::InputFloat("Rotation Angle", &State.NameRotate);
                 ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
             }
 
@@ -589,11 +585,10 @@ namespace SelfTab {
                     State.Save();
             }*/
 
-            if (State.InMeeting && AnimatedButton("Move in Meeting"))
+            if (State.InMeeting && AnimatedButton("Exit Meeting"))
             {
                 if (IsHost()) State.rpcQueue.push(new RpcEndMeeting());
                 else State.rpcQueue.push(new EndMeeting());
-                State.InMeeting = false;
             }
         }
 
@@ -656,14 +651,31 @@ namespace SelfTab {
             if (ToggleButton("Better Message Sounds", &State.BetterMessageSounds)) {
                 State.Save();
             }
+            ImGui::SameLine();
+            if (ToggleButton("Extended Notifications", &State.ExtendedNotifications)) {
+                State.Save();
+            }
 
             if (ToggleButton("Auto Rejoin After Game Ending", &State.AutoRejoin)) {
                 State.Save();
             }
             ImGui::SameLine();
+            if (ToggleButton("Auto-Rejoin on Votekick", &State.AutoRejoinOnKick)) {
+                State.Save();
+            }
+
             if (ToggleButton("Disable Shush Animation", &State.DisableShushAnimation)) {
                 State.Save();
             }
+
+            if (ToggleButton("Control Pet", &State.ControlPet)) {
+                if (*Game::pLocalPlayer == nullptr || (!IsInGame() && !IsInLobby())) State.ControlPet = false;
+                if (!State.ControlPet) State.DisableControlPetHand = true;
+            }
+            ImGui::SameLine();
+            /*if (ToggleButton("Show Hand While Controlling Pet", &State.ShowPetHand)) {
+                State.Save();
+            }*/
 
             if (ToggleButton("Autokill", &State.AutoKill)) {
                 State.Save();
@@ -704,17 +716,11 @@ namespace SelfTab {
             if (!State.SafeMode && State.RotateEveryone && ToggleButton("Server-sided Rotation", &State.RotateServerSide)) {
                 State.Save();
             }
-            if (ImGui::InputFloat("Rotation Radius", &State.RotateRadius, 0.0f, 0.0f, "%.2f m")) {
-                State.Save();
-            }
+            ImGui::InputFloat("Rotation Radius", &State.RotateRadius, 0.0f, 0.0f, "%.2f m");
 
-            if (ImGui::InputFloat("X Coordinate", &State.xCoordinate, 0.0f, 0.0f, "%.4f X")) {
-                State.Save();
-            }
+            ImGui::InputFloat("X Coordinate", &State.xCoordinate, 0.0f, 0.0f, "%.4f X");
 
-            if (ImGui::InputFloat("Y Coordinate", &State.yCoordinate, 0.0f, 0.0f, "%.4f Y")) {
-                State.Save();
-            }
+            ImGui::InputFloat("Y Coordinate", &State.yCoordinate, 0.0f, 0.0f, "%.4f Y");
 
             if (ToggleButton("Relative Teleport", &State.RelativeTeleport)) {
                 State.Save();
@@ -758,9 +764,28 @@ namespace SelfTab {
                 }
             }
 
-            if (CustomListBoxInt("Select Role", &State.FakeRole, FAKEROLES, 100.0f * State.dpiScale)) {
-                // for some reason, detective is 12 (0x0c) instead of 11, and viper is 18 (0x12) instead of 12
-                if (State.FakeRole >= 12) State.FakeRoleId = State.FakeRole + 6;
+            ColorMapping FAKEROLE_NAMES_COLOR[] = {
+                {"Crewmate",		State.CrewmateColor},
+                {"Impostor",		State.ImpostorColor},
+                {"Scientist",		State.ScientistColor},
+                {"Engineer",		State.EngineerColor},
+                {"Guardian Angel",	State.GuardianAngelColor},
+                {"Shapeshifter",	State.ShapeshifterColor},
+                {"Crewmate Ghost",  State.CrewmateGhostColor},
+                {"Impostor Ghost",	State.ImpostorGhostColor},
+                {"Noisemaker",		State.NoisemakerColor},
+                {"Phantom",			State.PhantomColor},
+                {"Tracker",			State.TrackerColor},
+                {"Detective",		State.DetectiveColor},
+                {"Viper",			State.ViperColor},
+                {"Judge",           State.JudgeColor},
+                {"Influencer",      State.InfluencerColor},
+            }; // needs to be updated every render
+
+            if (CustomListBoxIntColored("Select Role", &State.FakeRole, FAKEROLES, 100.0f * State.dpiScale, ImVec4(1.f, 1.f, 1.f, 0.f), 0, " ", FAKEROLE_NAMES_COLOR, IM_ARRAYSIZE(FAKEROLE_NAMES_COLOR))) {
+                // for some reason, detective is 12 (0x0c) instead of 11, viper is 18 (0x12) instead of 12, and influencer (SpiritGuide) is 21 (0x15) instead of 20
+                if (State.FakeRole >= 14) State.FakeRoleId = State.FakeRole + 7;
+                else if (State.FakeRole >= 12) State.FakeRoleId = State.FakeRole + 6;
                 else if (State.FakeRole == 11) State.FakeRoleId = State.FakeRole + 1;
                 else State.FakeRoleId = State.FakeRole;
                 State.Save();
@@ -790,30 +815,42 @@ namespace SelfTab {
             case (int)RoleTypes__Enum::Crewmate:
             case (int)RoleTypes__Enum::Engineer:
             case (int)RoleTypes__Enum::Scientist:
-            case (int)RoleTypes__Enum::Noisemaker:
             case (int)RoleTypes__Enum::Tracker:
             case (int)RoleTypes__Enum::Detective:
             case (int)RoleTypes__Enum::CrewmateGhost:
             case (int)RoleTypes__Enum::ImpostorGhost:
+                roleAllowed = true;
+                break;
+            case (int)RoleTypes__Enum::Noisemaker:
+                if (State.RealRole != RoleTypes__Enum::Noisemaker) {
+                    roleAllowed = false;
+                    break;
+                }
+                roleAllowed = true;
+                break;
             case (int)RoleTypes__Enum::GuardianAngel:
+                if (!IsHost() && State.SafeMode && State.RealRole != RoleTypes__Enum::GuardianAngel) {
+                    roleAllowed = false;
+                    break;
+                }
                 roleAllowed = true;
                 break;
             case (int)RoleTypes__Enum::Judge:
-                if (State.SafeMode || State.RealRole != RoleTypes__Enum::Judge) {
+                if (State.SafeMode && State.RealRole != RoleTypes__Enum::Judge) {
                     roleAllowed = false;
                     break;
                 }
                 roleAllowed = true;
                 break;
             case (int)RoleTypes__Enum::Impostor:
-                if ((!IsHost() && State.SafeMode) || State.RealRole != RoleTypes__Enum::Impostor || State.RealRole != RoleTypes__Enum::Shapeshifter || State.RealRole != RoleTypes__Enum::Phantom || State.RealRole != RoleTypes__Enum::Viper) {
+                if (!IsHost() && State.SafeMode && State.RealRole != RoleTypes__Enum::Impostor && State.RealRole != RoleTypes__Enum::Shapeshifter && State.RealRole != RoleTypes__Enum::Phantom && State.RealRole != RoleTypes__Enum::Viper) {
                     roleAllowed = false;
                     break;
                 }
                 roleAllowed = true;
                 break;
             case (int)RoleTypes__Enum::Shapeshifter:
-                if (State.SafeMode || State.RealRole != RoleTypes__Enum::Shapeshifter) {
+                if (State.SafeMode && State.RealRole != RoleTypes__Enum::Shapeshifter) {
                     roleAllowed = false;
                     break;
                 }
@@ -828,6 +865,13 @@ namespace SelfTab {
                 break;
             case (int)RoleTypes__Enum::Viper:
                 if (State.RealRole != RoleTypes__Enum::Viper) {
+                    roleAllowed = false;
+                    break;
+                }
+                roleAllowed = true;
+                break;
+            case (int)RoleTypes__Enum::SpiritGuide:
+                if (State.RealRole != RoleTypes__Enum::SpiritGuide) {
                     roleAllowed = false;
                     break;
                 }
@@ -907,20 +951,21 @@ namespace SelfTab {
                 ImGui::TextColored(State.GuardianAngelColor, "Guardian Angel");
                 if (ToggleButton("No Protect Cooldown", &State.GuardianAngel_NoProtectCooldown)) State.Save();
                 ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
-
-                ImGui::TextColored(State.ImpostorColor, "Impostor");
-                if (ToggleButton("No Kill Cooldown", &State.Impostor_NoKillCooldown)) State.Save();
-                ImGui::SameLine();
-                if (ToggleButton("Kill Other Impostors", &State.KillImpostors)) State.Save();
-                ImGui::SameLine();
-                if (ToggleButton("Kill Reach", &State.InfiniteKillRange)) State.Save();
-                
-
-                if (ToggleButton("Do Tasks as Impostor", &State.DoTasksAsImpostor)) {
-                    State.Save();
-                }
-                ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
             }
+
+            ImGui::TextColored(State.InfluencerColor, "Influencer");
+            if (ToggleButton("No Refresh Cooldown", &State.Influencer_NoRefreshCooldown)) State.Save();
+            ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
+
+            ImGui::TextColored(State.ImpostorColor, "Impostor");
+            if (ToggleButton("Kill Other Impostors", &State.KillImpostors)) State.Save();
+            ImGui::SameLine();
+            if (ToggleButton("Kill Reach", &State.InfiniteKillRange)) State.Save();
+            ImGui::SameLine();
+            if (ToggleButton("Do Tasks as Impostor", &State.DoTasksAsImpostor)) State.Save();
+
+            if (IsHost() && ToggleButton("No Kill Cooldown", &State.Impostor_NoKillCooldown)) State.Save();
+            ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
 
             ImGui::TextColored(State.ShapeshifterColor, "Shapeshifter");
             if (ToggleButton("No Shapeshift Animation", &State.AnimationlessShapeshift)) State.Save();
@@ -1035,6 +1080,7 @@ namespace SelfTab {
                 ImGui::Dummy(ImVec2(4, 4) * State.dpiScale);
                 if ((IsInGame() || IsInLobby()) && AnimatedButton("Confuse Now")) {
                     ControlAppearance(true);
+                    Toasts::AddToast("Confuser", "Randomized your outfit!", ImVec4(0.f, 1.f, 1.f, 1.f));
                 }
                 if (IsInGame() || IsInLobby()) {
                     if (IsHost() || !State.SafeMode)
@@ -1137,7 +1183,7 @@ namespace SelfTab {
                 if (!State.CosmeticPresets.empty()) {
                     std::vector<const char*> names;
                     for (auto& p : State.CosmeticPresets) names.push_back(p.Name.c_str());
-                    CustomListBoxInt("##cosmeticpresetselect", &State.SelectedCosmeticPreset, names, 200.0f * State.dpiScale, ImVec4(0, 0, 0, 0), 0, "Preset");
+                    CustomListBoxInt("Preset", &State.SelectedCosmeticPreset, names, 200.0f * State.dpiScale, ImVec4(0, 0, 0, 0), 0);
                     ImGui::SameLine();
                     if (AnimatedButton("Apply##cosmeticpreset")) {
                         ApplyCosmeticPreset(State.CosmeticPresets[std::clamp(State.SelectedCosmeticPreset, 0, (int)State.CosmeticPresets.size() - 1)]);
@@ -1196,6 +1242,20 @@ namespace SelfTab {
                 }
             }
         }
+
+        if (openAntiExploit) {
+            if (ToggleButton("No Disconnect Penalties", &State.AntiExploit_DisconnectPenalties)) State.Save();
+            if (ToggleButton("Resist Targeted Sabotages (Non-Host)", &State.AntiExploit_UnauthorizedSabotages)) State.Save();
+            if (ToggleButton("Resist Unauthorized Teleports", &State.AntiExploit_UnauthorizedTeleports)) State.Save();
+            if (ToggleButton("Resist Unauthorized Ziplines", &State.AntiExploit_UnauthorizedZiplines)) State.Save();
+            if (ToggleButton("Resist Attempt to Ban", &State.AntiExploit_AttemptToBan)) State.Save();
+
+            ImGui::NewLine();
+            ImGui::Text("Anti-Exploits for Hosts");
+            if (ToggleButton("Resist Votekicks Against Self", &State.AntiExploit_VotekicksAgainstSelfHost)) State.Save();
+            if (ToggleButton("Prevent Attempt to Crash Lobby", &State.AntiExploit_CrashLobbyHost)) State.Save();
+        }
+
         if (openTextEditor) {
             InputString("Input", &originalText);
             editedText = GetTextEditorName(originalText);
@@ -1203,47 +1263,27 @@ namespace SelfTab {
             ImGui::SameLine();
             if (AnimatedButton("Copy")) ClipboardHelper_PutClipboardString(convert_to_string(editedText), NULL);
 
-            if (ToggleButton("Italics", &italicName)) {
-                State.Save();
-            }
+            ToggleButton("Italics", &italicName);
             ImGui::SameLine();
-            if (ToggleButton("Underline", &underlineName)) {
-                State.Save();
-            }
+            ToggleButton("Underline", &underlineName);
             ImGui::SameLine();
-            if (ToggleButton("Strikethrough", &strikethroughName)) {
-                State.Save();
-            }
+            ToggleButton("Strikethrough", &strikethroughName);
             ImGui::SameLine();
-            if (ToggleButton("Bold", &boldName)) {
-                State.Save();
-            }
+            ToggleButton("Bold", &boldName);
             ImGui::SameLine();
-            if (ToggleButton("Nobr", &nobrName)) {
-                State.Save();
-            }
+            ToggleButton("Nobr", &nobrName);
 
-            if (ImGui::ColorEdit4("Starting Gradient Color", (float*)&nameColor1, ImGuiColorEditFlags__OptionsDefault | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreview)) {
-                State.Save();
-            }
+            ImGui::ColorEdit4("Starting Gradient Color", (float*)&nameColor1, ImGuiColorEditFlags__OptionsDefault | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreview);
             ImGui::SameLine();
-            if (ImGui::ColorEdit4("Ending Gradient Color", (float*)&nameColor2, ImGuiColorEditFlags__OptionsDefault | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreview)) {
-                State.Save();
-            }
+            ImGui::ColorEdit4("Ending Gradient Color", (float*)&nameColor2, ImGuiColorEditFlags__OptionsDefault | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_AlphaPreview);
             ImGui::SameLine();
-            if (ToggleButton("Colored", &coloredName)) {
-                State.Save();
-            }
+            ToggleButton("Colored", &coloredName);
 
             ImGui::Dummy(ImVec2(2, 2) * State.dpiScale);
 
-            if (ToggleButton("Font", &font)) {
-                State.Save();
-            }
+            ToggleButton("Font", &font);
             ImGui::SameLine();
-            if (CustomListBoxInt(" ", &fontType, FONTS, 160.f * State.dpiScale)) {
-                State.Save();
-            }
+            CustomListBoxInt(" ", &fontType, FONTS, 160.f * State.dpiScale);
             ImGui::Dummy(ImVec2(-5, -5) * State.dpiScale);
             if (State.Font) ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), ("Note: The white nickname will not be visible in the chat"));
 
@@ -1258,65 +1298,42 @@ namespace SelfTab {
             }*/
 
             ImGui::Dummy(ImVec2(10, 10) * State.dpiScale);
-            if (ToggleButton("Size", &resizeName)) {
-                State.Save();
-            }
+            ToggleButton("Size", &resizeName);
 
             ImGui::SameLine();
-            if (ImGui::InputFloat("Name Size", &nameSize)) {
-                State.Save();
-            }
+            ImGui::InputFloat("Name Size", &nameSize);
 
             ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
-            if (ToggleButton("Indent", &indentName)) {
-                State.Save();
-            }
+            ToggleButton("Indent", &indentName);
 
             ImGui::SameLine();
-            if (ImGui::InputFloat("Name Indent", &indentLevel)) {
-                State.Save();
-            }
+            ImGui::InputFloat("Name Indent", &indentLevel);
 
             ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
-            if (ToggleButton("Cspace", &cspaceName)) {
-                State.Save();
-            }
+            ToggleButton("Cspace", &cspaceName);
 
             ImGui::SameLine();
-            if (ImGui::InputFloat("Name Cspace", &cspaceLevel)) {
-                State.Save();
-            }
+            ImGui::InputFloat("Name Cspace", &cspaceLevel);
 
             ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
-            if (ToggleButton("Mspace", &mspaceName)) {
-                State.Save();
-            }
+            ToggleButton("Mspace", &mspaceName);
 
             ImGui::SameLine();
-            if (ImGui::InputFloat("Name Mspace", &mspaceLevel)) {
-                State.Save();
-            }
+            ImGui::InputFloat("Name Mspace", &mspaceLevel);
 
             ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
-            if (ToggleButton("Voffset", &voffsetName)) {
-                State.Save();
-            }
+            ToggleButton("Voffset", &voffsetName);
 
             ImGui::SameLine();
-            if (ImGui::InputFloat("Name Voffset", &voffsetLevel)) {
-                State.Save();
-            }
+            ImGui::InputFloat("Name Voffset", &voffsetLevel);
 
             ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
-            if (ToggleButton("Rotate", &rotateName)) {
-                State.Save();
-            }
+            ToggleButton("Rotate", &rotateName);
 
             ImGui::SameLine();
-            if (ImGui::InputFloat("Rotation Angle", &rotateAngle)) {
-                State.Save();
-            }
+            ImGui::InputFloat("Rotation Angle", &rotateAngle);
         }
+        ImGui::EndChild();
         ImGui::EndChild();
     }
 }

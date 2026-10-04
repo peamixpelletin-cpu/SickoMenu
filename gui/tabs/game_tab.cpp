@@ -5,113 +5,6 @@
 #include "utility.h"
 #include "state.hpp"
 #include "logger.h"
-/*#include <hunspell/hunspell.hxx>
-#include <sstream>
-#include <string>
-#include <vector>
-#include "imgui.h"
-
-class SpellChecker {
-public:
-    SpellChecker(const std::string& affPath, const std::string& dicPath) {
-        if (!Hunspell::isAvailable()) {
-            throw std::runtime_error("Hunspell is not available.");
-        }
-        spell = new Hunspell(affPath.c_str(), dicPath.c_str());
-        if (!spell->load()) {
-            delete spell;
-            throw std::runtime_error("Failed to load Hunspell dictionary.");
-        }
-    }
-
-    ~SpellChecker() {
-        delete spell;
-    }
-
-    bool isCorrect(const std::string& word) const {
-        return spell->spell(word.c_str());
-    }
-
-private:
-    Hunspell* spell;
-};
-
-void HighlightMisspelledWords(SpellChecker& checker, const std::string& text) {
-    std::istringstream iss(text);
-    std::string word;
-
-    while (iss >> word) {
-
-        bool isCorrect = checker.isCorrect(word);
-
-        if (!isCorrect) {
-
-            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", word.c_str());
-        } else {
-
-            ImGui::Text("%s ", word.c_str());
-        }
-    }
-}
-
-void RenderMenu() {
-    try {
-        SpellChecker spellChecker("en_US.aff", "en_US.dic");
-
-        std::string chatMessage = "Ths is a smaple text with sme misspelled wrds.";
-
-        if (ToggleButton("Blocked Words", &State.SMAC_CheckBadWords)) State.Save();
-        if (State.SMAC_CheckBadWords) {
-            HighlightMisspelledWords(spellChecker, chatMessage);
-
-            static std::string newWord = "";
-            InputString("New Word", &newWord, ImGuiInputTextFlags_EnterReturnsTrue);
-            ImGui::SameLine();
-            if (AnimatedButton("Add Word")) {
-                State.SMAC_BadWords.push_back(newWord);
-                State.Save();
-                newWord = "";
-            }
-
-
-        }
-    } catch (const std::exception& e) {
-
-        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Error: %s", e.what());
-    }
-}
-
-
-bool ToggleButton(const char* label, bool* p_value) {
-    return ImGui::Checkbox(label, p_value);
-}
-
-void InputString(const char* label, std::string* str, int flags = 0) {
-    ImGui::InputText(label, &(*str)[0], str->capacity() + 1, flags);
-}
-
-
-struct State {
-    bool SMAC_CheckBadWords;
-    void Save() {}
-    static std::vector<std::string> SMAC_BadWords;
-};
-
-std::vector<std::string> State::SMAC_BadWords;
-
-int main() {
-
-
-    while (true) {
-        RenderMenu();
-
-
-    }
-
-    return 0;
-}
-
-*/
 
 static std::string strToLower(std::string str) {
     std::string new_str = "";
@@ -135,7 +28,7 @@ namespace GameTab {
     static bool openChat = false;
     static bool openAnticheat = false;
     static bool openUtils = false;
-        static bool openHistory = false;
+    static bool openHistory = false;
     static bool openOptions = false;
 
     void CloseOtherGroups(Groups group) {
@@ -158,7 +51,7 @@ namespace GameTab {
 
     void Render() {
         ImGui::SameLine(100 * State.dpiScale);
-        ImGui::BeginChild("###Game", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
+        ImGui::BeginChild("###GameButtons", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
         if (TabGroup("General", openGeneral)) {
             CloseOtherGroups(Groups::General);
         }
@@ -198,6 +91,7 @@ namespace GameTab {
             "Manual Warn"
         };
 
+        ImGui::BeginChild("###Game", ImVec2(500 * State.dpiScale, 0), true, ImGuiWindowFlags_NoBackground);
         if (openGeneral) {
             ImGui::Dummy(ImVec2(2, 2) * State.dpiScale);
             if (SteppedSliderFloat("Player Speed Multiplier", &State.PlayerSpeed, 0.f, 10.f, 0.05f, "%.2fx", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_NoInput)) {
@@ -227,11 +121,11 @@ namespace GameTab {
             ImGui::Dummy(ImVec2(7, 7) * State.dpiScale);
 
             if (IsHost() || !State.SafeMode) {
-                CustomListBoxInt(" ", &State.SelectedColorId, HOSTCOLORS, 85.0f * State.dpiScale);
+                CustomListBoxIntColored(" ", &State.SelectedColorId, HOSTCOLORS, 85.0f * State.dpiScale, ImVec4(1.f, 1.f, 1.f, 0.f), 0, "", COLOR_NAMES_COLOR, IM_ARRAYSIZE(COLOR_NAMES_COLOR));
             }
             else {
                 if (State.SelectedColorId >= (int)COLORS.size()) State.SelectedColorId = 0;
-                CustomListBoxInt(" ", &State.SelectedColorId, COLORS, 85.0f * State.dpiScale);
+                CustomListBoxIntColored(" ", &State.SelectedColorId, COLORS, 85.0f * State.dpiScale, ImVec4(1.f, 1.f, 1.f, 0.f), 0, "", COLOR_NAMES_COLOR, IM_ARRAYSIZE(COLOR_NAMES_COLOR));
             }
             ImGui::SameLine();
             if (AnimatedButton("Random Color"))
@@ -265,6 +159,10 @@ namespace GameTab {
             if (ToggleButton("Console", &State.ShowConsole)) {
                 State.Save();
             }
+            ImGui::SameLine();
+            if (ToggleButton("Show Console Events as Toasts", &State.ShowConsoleEventsAsToasts)) {
+                State.Save();
+            }
 
             /*if (ToggleButton("Auto-Join", &State.AutoJoinLobby))
                 State.Save();
@@ -278,7 +176,7 @@ namespace GameTab {
                     NULL);
             }*/
 
-            if (IsInGame() || IsInLobby()) ImGui::SameLine();
+
             if ((IsInGame() || IsInLobby()) && AnimatedButton("Reset Appearance"))
             {
                 ControlAppearance(false);
@@ -363,7 +261,7 @@ namespace GameTab {
 
                 ImGui::SetNextItemWidth(100 * State.dpiScale);
                 CustomListBoxInt("Vent", &State.SelectedVentId, allVents);
-                ImGui::SameLine();
+                
                 if (AnimatedButton("Teleport All to Vent")) {
                     for (auto p : GetAllPlayerControl()) {
                         if (State.IgnoreVentTpSelf && p == *Game::pLocalPlayer) continue;
@@ -373,6 +271,20 @@ namespace GameTab {
                             State.rpcQueue.push(new RpcBootFromVentNonHost(p, (State.mapType == Settings::MapType::Hq) ? State.SelectedVentId + 1 : State.SelectedVentId)); //MiraHQ vents start from 1 instead of 0
                     }
                 }
+                ImGui::SameLine();
+                if (AnimatedButton("Teleport All to Random Vents")) {
+                    bool isHq = State.mapType == Settings::MapType::Hq;
+                    for (auto p : GetAllPlayerControl()) {
+                        if (State.IgnoreVentTpSelf && p == *Game::pLocalPlayer) continue;
+                        int randomVentId = randi((int)isHq, (int)allVents.size() - (int)(!isHq));
+
+                        if (IsHost() || !State.SafeMode)
+                            State.rpcQueue.push(new RpcBootFromVent(p, randomVentId));
+                        else
+                            State.rpcQueue.push(new RpcBootFromVentNonHost(p, randomVentId));
+                    }
+                }
+
                 if (ToggleButton("Spam TP All to Vent", &State.SpamVentTpEveryone)) {
                     if (State.SpamVentTpEveryone) State.SpamVentTpEveryoneRandom = false;
                 }
@@ -381,11 +293,30 @@ namespace GameTab {
                     if (State.SpamVentTpEveryoneRandom) State.SpamVentTpEveryone = false;
                 }
 
-                if (ToggleButton("Ignore Self", &State.IgnoreVentTpSelf)) {
-                    State.Save();
-                }
+                if (ToggleButton("Ignore Self (Vent TP)", &State.IgnoreVentTpSelf)) State.Save();
+
                 if (IsInMultiplayerGame() && AnimatedButton("Attempt to Ban Everyone")) {
                     State.rpcQueue.push(new AttemptToBan(NULL));
+                }
+
+                if (State.mapType == Settings::MapType::Fungle) {
+                    if (AnimatedButton("Make All Climb Zipline (Bottom to Top)")) {
+                        for (auto p : GetAllPlayerControl()) {
+                            if (State.IgnoreZiplineSelf && p == *Game::pLocalPlayer) continue;
+                            State.rpcQueue.push(new RpcClimbZipline(p, false));
+                        }
+                    }
+                    ImGui::SameLine();
+                    if (AnimatedButton("Make All Climb Zipline (Top to Bottom)")) {
+                        for (auto p : GetAllPlayerControl()) {
+                            if (State.IgnoreZiplineSelf && p == *Game::pLocalPlayer) continue;
+                            State.rpcQueue.push(new RpcClimbZipline(p, true));
+                        }
+                    }
+
+                    ToggleButton("Spam Climb Zipline for Everyone", &State.SpamZiplineEveryone);
+                    ImGui::SameLine();
+                    if (ToggleButton("Ignore Self (Zipline)", &State.IgnoreZiplineSelf)) State.Save();
                 }
             }
 
@@ -480,9 +411,7 @@ namespace GameTab {
                         State.Save();
                     }
 
-                    if (InputString("Username", &State.hostUserName)) {
-                        State.Save();
-                    }
+                    InputString("Username", &State.hostUserName);
 
                     if (AnimatedButton("Set Color for Everyone")) {
                         for (auto p : GetAllPlayerControl()) {
@@ -495,40 +424,41 @@ namespace GameTab {
                         State.Save();
                     }
 
-                    if (CustomListBoxInt(" ­", &State.HostSelectedColorId, HOSTCOLORS, 85.0f * State.dpiScale)) State.Save();
+                    if (CustomListBoxIntColored(" ­", &State.HostSelectedColorId, HOSTCOLORS, 85.0f * State.dpiScale, ImVec4(1.f, 1.f, 1.f, 0.f), 0, "", COLOR_NAMES_COLOR, IM_ARRAYSIZE(COLOR_NAMES_COLOR))) State.Save();
                 }
             }
         }
 
         if (openChat) {
             bool msgAllowed = IsChatValid(State.chatMessage);
-            if (!msgAllowed) {
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.5f, 0.f, 0.f, State.MenuThemeColor.w));
-                if (InputStringMultiline("\n\n\n\n\nChat Message", &State.chatMessage)) State.Save();
-                ImGui::PopStyleColor();
-            }
-            else if (InputStringMultiline("\n\n\n\n\nChat Message", &State.chatMessage)) State.Save();
-            if ((IsInGame() || IsInLobby()) && State.ChatCooldown >= 3.f && IsChatValid(State.chatMessage)) {
-                ImGui::SameLine();
-                if (AnimatedButton("Send"))
+
+            if (!msgAllowed) ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.5f, 0.f, 0.f, State.MenuThemeColor.w));
+            InputStringMultiline("\n\n\n\n\nChat Message", &State.chatMessage);
+            if (!msgAllowed) ImGui::PopStyleColor();
+
+            if (!State.chatMessage.empty()) {
+                if ((IsInGame() || IsInLobby()) && State.ChatCooldown >= 3.f && IsChatValid(State.chatMessage)) {
+                    ImGui::SameLine();
+                    if (AnimatedButton("Send"))
+                    {
+                        auto player = (!State.SafeMode && State.playerToChatAs.has_value()) ?
+                            State.playerToChatAs.validate().get_PlayerControl() : *Game::pLocalPlayer;
+                        if (IsInGame()) State.rpcQueue.push(new RpcSendChat(player, State.chatMessage));
+                        else if (IsInLobby()) State.lobbyRpcQueue.push(new RpcSendChat(player, State.chatMessage));
+                        State.MessageSent = true;
+                    }
+                }
+                if ((IsInGame() || IsInLobby()) && State.ReadAndSendSickoChat) ImGui::SameLine();
+                if (State.ReadAndSendSickoChat && (IsInGame() || IsInLobby()) && AnimatedButton("Send SickoChat"))
                 {
                     auto player = (!State.SafeMode && State.playerToChatAs.has_value()) ?
                         State.playerToChatAs.validate().get_PlayerControl() : *Game::pLocalPlayer;
-                    if (IsInGame()) State.rpcQueue.push(new RpcSendChat(player, State.chatMessage));
-                    else if (IsInLobby()) State.lobbyRpcQueue.push(new RpcSendChat(player, State.chatMessage));
-                    State.MessageSent = true;
-                }
-            }
-            if ((IsInGame() || IsInLobby()) && State.ReadAndSendSickoChat) ImGui::SameLine();
-            if (State.ReadAndSendSickoChat && (IsInGame() || IsInLobby()) && AnimatedButton("Send SickoChat"))
-            {
-                auto player = (!State.SafeMode && State.playerToChatAs.has_value()) ?
-                    State.playerToChatAs.validate().get_PlayerControl() : *Game::pLocalPlayer;
-                if (IsInGame()) {
-                    State.rpcQueue.push(new RpcForceSickoChat(PlayerSelection(player), State.chatMessage, true));
-                }
-                else if (IsInLobby()) {
-                    State.lobbyRpcQueue.push(new RpcForceSickoChat(PlayerSelection(player), State.chatMessage, true));
+                    if (IsInGame()) {
+                        State.rpcQueue.push(new RpcForceSickoChat(PlayerSelection(player), State.chatMessage, true));
+                    }
+                    else if (IsInLobby()) {
+                        State.lobbyRpcQueue.push(new RpcForceSickoChat(PlayerSelection(player), State.chatMessage, true));
+                    }
                 }
             }
 
@@ -548,37 +478,234 @@ namespace GameTab {
                     { State.SafeMode ? "With Message (Self-Spam ONLY)" : "With Message", "Blank Chat", State.SafeMode ? "Self Message + Blank Chat" : "Message + Blank Chat" })) State.Save();
             }
 
-            if (std::find(State.ChatPresets.begin(), State.ChatPresets.end(), State.chatMessage) == State.ChatPresets.end() && AnimatedButton("Add Message as Preset")) {
-                State.ChatPresets.push_back(State.chatMessage);
-                State.Save();
-            }
             if (!(IsHost() || !State.SafeMode) && State.chatMessage.size() > 120) {
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Message will be detected by anticheat.");
             }
-            if (!State.ChatPresets.empty()) {
-                static int selectedPresetIndex = 0;
-                selectedPresetIndex = std::clamp(selectedPresetIndex, 0, (int)State.ChatPresets.size() - 1);
-                std::vector<const char*> presetVector(State.ChatPresets.size(), nullptr);
-                for (size_t i = 0; i < State.ChatPresets.size(); i++) {
-                    presetVector[i] = State.ChatPresets[i].c_str();
+
+            ImGui::Dummy(ImVec2(0, 4) * State.dpiScale);
+            if (ImGui::CollapsingHeader("Chat Presets", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Dummy(ImVec2(0, 2) * State.dpiScale);
+                static std::string newChatPresetName = "MyPreset";
+                static int lastRenameIndex = -1;
+                auto chatPresetNameTaken = [](const std::string& name, int excludeIndex) {
+                    for (size_t i = 0; i < State.ChatPresets.size(); i++) {
+                        if ((int)i == excludeIndex) continue;
+                        if (State.ChatPresets[i].Name == name) return true;
+                    }
+                    return false;
+                    };
+
+                if (!State.ChatPresets.empty()) {
+                    std::vector<const char*> presetNames;
+                    for (auto& p : State.ChatPresets) presetNames.push_back(p.Name.c_str());
+                    State.SelectedChatPreset = std::clamp(State.SelectedChatPreset, 0, (int)State.ChatPresets.size() - 1);
+                    CustomListBoxInt("Preset", &State.SelectedChatPreset, presetNames, 200.0f * State.dpiScale, ImVec4(0, 0, 0, 0), 0);
+                    auto& selected = State.ChatPresets[State.SelectedChatPreset];
+
+                    if (lastRenameIndex != State.SelectedChatPreset) {
+                        newChatPresetName = selected.Name;
+                        lastRenameIndex = State.SelectedChatPreset;
+                    }
+
+                    ImGui::SameLine();
+                    if (AnimatedButton("Apply##chatpreset")) {
+                        State.chatMessage = selected.Messages.empty() ? "" : selected.Messages[0];
+                    }
+                    ImGui::SameLine();
+                    if (AnimatedButton("Update##chatpreset")) {
+                        selected.Messages = { State.chatMessage };
+                        State.Save();
+                    }
+                    ImGui::SameLine();
+                    if (AnimatedButton("Delete##chatpreset")) {
+                        State.ChatPresets.erase(State.ChatPresets.begin() + State.SelectedChatPreset);
+                        if (!State.ChatPresets.empty())
+                            State.SelectedChatPreset = std::clamp(State.SelectedChatPreset, 0, (int)State.ChatPresets.size() - 1);
+                        lastRenameIndex = -1;
+                        State.Save();
+                    }
                 }
-                CustomListBoxInt("Message to Send/Remove", &selectedPresetIndex, presetVector);
-                auto msg = State.ChatPresets[selectedPresetIndex];
-                if (AnimatedButton("Set as Chat Message"))
-                {
-                    State.chatMessage = msg;
+                else {
+                    ImGui::TextDisabled("No presets saved.");
                 }
+
+                ImGui::Dummy(ImVec2(0, 4) * State.dpiScale);
+
+                ImGui::SetNextItemWidth(160 * State.dpiScale);
+                InputString("##PresetNameInput", &newChatPresetName);
                 ImGui::SameLine();
-                if (AnimatedButton("Remove"))
-                    State.ChatPresets.erase(State.ChatPresets.begin() + selectedPresetIndex);
+                ImGui::TextUnformatted("Preset Name");
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Preset names can't contain spaces to be usable with /cmd (e.g. /rules).");
+                ImGui::SameLine();
+                if (AnimatedButton("Save Current##chatpreset")) {
+                    std::string sanitizedName = newChatPresetName;
+                    sanitizedName.erase(std::remove(sanitizedName.begin(), sanitizedName.end(), ' '), sanitizedName.end());
+                    if (sanitizedName.empty()) sanitizedName = "Preset";
+                    if (chatPresetNameTaken(sanitizedName, -1)) {
+                        ImGui::OpenPopup("ChatPresetNameTaken");
+                    }
+                    else {
+                        Settings::ChatPreset p;
+                        p.Name = sanitizedName;
+                        p.Messages = { State.chatMessage };
+                        State.ChatPresets.push_back(p);
+                        State.SelectedChatPreset = (int)State.ChatPresets.size() - 1;
+                        lastRenameIndex = State.SelectedChatPreset;
+                        State.Save();
+                    }
+                }
+                if (ImGui::BeginPopup("ChatPresetNameTaken")) {
+                    ImGui::Text("A preset with that name already exists.");
+                    ImGui::EndPopup();
+                }
+                if (!State.ChatPresets.empty()) {
+                    ImGui::SameLine();
+                    if (AnimatedButton("Rename##chatpreset")) {
+                        std::string sanitizedName = newChatPresetName;
+                        sanitizedName.erase(std::remove(sanitizedName.begin(), sanitizedName.end(), ' '), sanitizedName.end());
+                        if (!sanitizedName.empty()) {
+                            if (chatPresetNameTaken(sanitizedName, State.SelectedChatPreset)) {
+                                ImGui::OpenPopup("ChatPresetNameTaken");
+                            }
+                            else {
+                                State.ChatPresets[State.SelectedChatPreset].Name = sanitizedName;
+                                State.Save();
+                            }
+                        }
+                    }
+                }
+
+                ImGui::Dummy(ImVec2(0, 4) * State.dpiScale);
+
+                // Only single message presets can be included, to prevent the already combined presets from piling up.
+                std::vector<int> combinableIndices;
+                for (int i = 0; i < (int)State.ChatPresets.size(); i++) {
+                    if (State.ChatPresets[i].Messages.size() <= 1) combinableIndices.push_back(i);
+                }
+
+                if (combinableIndices.size() >= 2 && ImGui::CollapsingHeader("Combine Presets")) {
+                    ImGui::Dummy(ImVec2(0, 2)* State.dpiScale);
+                    static std::vector<std::pair<const char*, bool>> combineList;
+                    static std::vector<std::string> combineNamesCache;
+                    static size_t lastCombinableCount = 0;
+                    static std::vector<bool> prevCombineChecked;
+                    static std::vector<int> combineSelectionOrder; // saves into combineList in the order the user checked them
+                    if (combineList.size() != combinableIndices.size()) {
+                        combineNamesCache.clear();
+                        for (int idx : combinableIndices) combineNamesCache.push_back(State.ChatPresets[idx].Name);
+                        combineList.clear();
+                        for (auto& n : combineNamesCache) combineList.push_back({ n.c_str(), false });
+                        lastCombinableCount = combinableIndices.size();
+                        prevCombineChecked.assign(combineList.size(), false);
+                        combineSelectionOrder.clear();
+                    }
+
+                    CustomListBoxIntMultiple("Presets to Combine", &combineList, 220.0f * State.dpiScale);
+
+                    if (prevCombineChecked.size() != combineList.size())
+                        prevCombineChecked.assign(combineList.size(), false);
+                    for (size_t i = 0; i < combineList.size(); i++) {
+                        bool nowChecked = combineList[i].second;
+                        bool wasChecked = prevCombineChecked[i];
+                        if (nowChecked && !wasChecked) {
+                            combineSelectionOrder.push_back((int)i);
+                        }
+                        else if (!nowChecked && wasChecked) {
+                            combineSelectionOrder.erase(std::remove(combineSelectionOrder.begin(), combineSelectionOrder.end(), (int)i), combineSelectionOrder.end());
+                        }
+                        prevCombineChecked[i] = nowChecked;
+                    }
+
+                    ImGui::Dummy(ImVec2(0, 4) * State.dpiScale);
+                    static std::string combinedPresetName = "CombinedPreset";
+                    ImGui::SetNextItemWidth(160 * State.dpiScale);
+                    InputString("Combined Preset Name", &combinedPresetName);
+                    ImGui::SameLine();
+                    if (AnimatedButton("Combine as New Preset") && combineSelectionOrder.size() >= 2) {
+                        std::string sanitizedName = combinedPresetName;
+                        sanitizedName.erase(std::remove(sanitizedName.begin(), sanitizedName.end(), ' '), sanitizedName.end());
+                        if (sanitizedName.empty()) sanitizedName = "CombinedPreset";
+                        if (chatPresetNameTaken(sanitizedName, -1)) {
+                            ImGui::OpenPopup("ChatPresetNameTaken");
+                        }
+                        else {
+                            Settings::ChatPreset combined;
+                            combined.Name = sanitizedName;
+                            combined.Messages.clear();
+                            for (int i : combineSelectionOrder) {
+                                if (i >= 0 && i < (int)combinableIndices.size()) {
+                                    for (auto& m : State.ChatPresets[combinableIndices[i]].Messages) combined.Messages.push_back(m);
+                                }
+                            }
+                            if (!combined.Messages.empty()) {
+                                State.ChatPresets.push_back(combined);
+                                State.SelectedChatPreset = (int)State.ChatPresets.size() - 1;
+                                combineList.clear();
+                                prevCombineChecked.clear();
+                                combineSelectionOrder.clear();
+                                State.Save();
+                            }
+                        }
+                    }
+                }
             }
         }
 
         if (openAnticheat) {
             if (ToggleButton("Enable Anticheat (SMAC)", &State.Enable_SMAC)) State.Save();
-            if (IsHost()) CustomListBoxInt("Host Punishment ", &State.SMAC_HostPunishment, SMAC_HOST_PUNISHMENTS, 85.0f * State.dpiScale);
-            else CustomListBoxInt("Regular Punishment", &State.SMAC_Punishment, SMAC_PUNISHMENTS, 85.0f * State.dpiScale);
+            ImGui::Dummy(ImVec2(0, 1)* State.dpiScale);
+            if (ImGui::CollapsingHeader("Action on Detection##smacoverride")) {
+                bool changed = false;
 
+                ImGui::TextDisabled("Default action taken when a detection isn't specifically overridden below.");
+                changed = changed || CustomListBoxInt("", &State.SMAC_HostPunishment, SMAC_HOST_PUNISHMENTS, 85.0f * State.dpiScale);
+                ImGui::SameLine();
+                ImGui::Text("Host Action");
+                ImGui::SameLine();
+                changed = changed || CustomListBoxInt("  ", &State.SMAC_Punishment, SMAC_PUNISHMENTS, 85.0f * State.dpiScale);
+                ImGui::SameLine();
+                ImGui::Text("Regular Action");
+
+                ImGui::Dummy(ImVec2(0, 1) * State.dpiScale);
+                ImGui::TextDisabled("Override the action for a specific detection.");
+
+                static const std::vector<const char*> SMAC_CATEGORIES = {
+                    "Known Cheat Usage", "SickoMenu Usage", "Abnormal Names", "Abnormal Set Color",
+                    "Abnormal Set Cosmetics", "Abnormal Chat Note", "Abnormal Scanner", "Abnormal Animation",
+                    "Setting Tasks", "Abnormal Murders", "Abnormal Shapeshift", "Abnormal Vanish",
+                    "Abnormal Meetings/Body Reports", "Abnormal Venting", "Abnormal Chat",
+                    "Abnormal Task Completion", "Abnormal Sabotages", "Abnormal Player Levels",
+                    "Abnormal Friend Code", "Abnormal Platform", "Blocked Words", "Blocked Start Words","Blacklisted Players",
+                };
+                static int selectedCategory = 0;
+
+                std::string catKey = SMAC_CATEGORIES[selectedCategory];
+
+                auto& hostOverrides = State.SMAC_ReasonPunishmentOverrideHost;
+                if (hostOverrides.find(catKey) == hostOverrides.end())
+                    hostOverrides[catKey] = State.SMAC_HostPunishment;
+
+                auto& overrides = State.SMAC_ReasonPunishmentOverride;
+                if (overrides.find(catKey) == overrides.end())
+                    overrides[catKey] = State.SMAC_Punishment;
+
+                hostOverrides[catKey] = std::clamp(hostOverrides[catKey], 0, (int)SMAC_HOST_PUNISHMENTS.size() - 1);
+                overrides[catKey] = std::clamp(overrides[catKey], 0, (int)SMAC_PUNISHMENTS.size() - 1);
+
+                ImGui::SetNextItemWidth(150.0f * State.dpiScale);
+                CustomListBoxInt("Category", &selectedCategory, SMAC_CATEGORIES, 150.0f * State.dpiScale);
+
+                changed = changed || CustomListBoxInt(" ", &hostOverrides[catKey], SMAC_HOST_PUNISHMENTS, 85.0f * State.dpiScale);
+                ImGui::SameLine();
+                ImGui::Text("Host Override");
+                ImGui::SameLine();
+                changed = changed || CustomListBoxInt("   ", &overrides[catKey], SMAC_PUNISHMENTS, 85.0f * State.dpiScale);
+                ImGui::SameLine();
+                ImGui::Text("Regular Override");
+                if (changed) State.Save();
+            }
+            ImGui::Dummy(ImVec2(0, 2)* State.dpiScale);
             if (ToggleButton("Add Cheaters to Blacklist", &State.SMAC_AddToBlacklist)) State.Save();
             ImGui::SameLine();
             if (ToggleButton("Punish Blacklist", &State.SMAC_PunishBlacklist)) State.Save();
@@ -686,35 +813,51 @@ namespace GameTab {
             if (ToggleButton("Abnormal Task Completion", &State.SMAC_CheckTaskCompletion)) State.Save();
             ImGui::SameLine();
             if (ToggleButton("Abnormal Sabotages", &State.SMAC_CheckSabotage)) State.Save();
-            if (ToggleButton("Abnormal Player Levels (0 to ignore)", &State.SMAC_CheckLevel)) State.Save();
+            
+            if (ToggleButton("Abnormal Friend Code", &State.SMAC_CheckFriendcode)) State.Save();
             ImGui::SameLine();
-            if (ToggleButton("Abnormal Friendcode", &State.SMAC_CheckFriendcode)) State.Save();
-            if (State.SMAC_CheckLevel && ImGui::InputInt("Level >=", &State.SMAC_HighLevel)) {
-                State.Save();
-            }
-            if (State.SMAC_CheckLevel && ImGui::InputInt("Level <=", &State.SMAC_LowLevel)) {
-                State.Save();
+            if (ToggleButton("Platform Spoofing", &State.SMAC_CheckPlatformSpoof)) State.Save();
+
+            if (ToggleButton("Abnormal Player Levels (0 to ignore)", &State.SMAC_CheckLevel)) State.Save();
+
+            if (State.SMAC_CheckLevel) {
+                ImGui::InputInt("Level >=", &State.SMAC_HighLevel);
+                ImGui::InputInt("Level <=", &State.SMAC_LowLevel);
             }
             if (ToggleButton("Blocked Words", &State.SMAC_CheckBadWords)) State.Save();
             if (State.SMAC_CheckBadWords) {
+                static const std::vector<const char*> SMAC_DETECTION_MODES = { "Default Detection", "Strict Detection" };
                 if (State.SMAC_BadWords.empty())
                     ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No bad words added!");
                 static std::string newWord = "";
                 InputString("New Word", &newWord, ImGuiInputTextFlags_EnterReturnsTrue);
                 ImGui::SameLine();
                 if (AnimatedButton("Add Word")) {
-                    State.SMAC_BadWords.push_back(newWord);
-                    State.Save();
-                    newWord = "";
+                    std::string newWordLower = strToLower(newWord);
+                    bool alreadyExists = std::any_of(State.SMAC_BadWords.begin(), State.SMAC_BadWords.end(),
+                        [&](auto& w) { return strToLower(w.first) == newWordLower; });
+                    if (!newWord.empty() && !alreadyExists) {
+                        State.SMAC_BadWords.push_back({ newWord, false });
+                        State.Save();
+                        newWord = "";
+                    }
                 }
                 if (!State.SMAC_BadWords.empty()) {
                     static int selectedWordIndex = 0;
                     selectedWordIndex = std::clamp(selectedWordIndex, 0, (int)State.SMAC_BadWords.size() - 1);
-                    std::vector<const char*> wordVector(State.SMAC_BadWords.size(), nullptr);
-                    for (size_t i = 0; i < State.SMAC_BadWords.size(); i++) {
-                        wordVector[i] = State.SMAC_BadWords[i].c_str();
-                    }
+                    std::vector<std::string> wordDisplayStrings;
+                    for (auto& w : State.SMAC_BadWords)
+                        wordDisplayStrings.push_back(w.first + (w.second ? " [Strict]" : " [Default]"));
+                    std::vector<const char*> wordVector(wordDisplayStrings.size(), nullptr);
+                    for (size_t i = 0; i < wordDisplayStrings.size(); i++)
+                        wordVector[i] = wordDisplayStrings[i].c_str();
                     CustomListBoxInt("Word to Remove", &selectedWordIndex, wordVector);
+                    ImGui::SameLine();
+                    int badWordMode = State.SMAC_BadWords[selectedWordIndex].second ? 1 : 0;
+                    if (CustomListBoxInt("Detection Mode##badwords", &badWordMode, SMAC_DETECTION_MODES, 130.0f * State.dpiScale)) {
+                        State.SMAC_BadWords[selectedWordIndex].second = (badWordMode == 1);
+                        State.Save();
+                    }
                     ImGui::SameLine();
                     if (AnimatedButton("Remove"))
                         State.SMAC_BadWords.erase(State.SMAC_BadWords.begin() + selectedWordIndex);
@@ -723,13 +866,10 @@ namespace GameTab {
 
             if (ToggleButton("Blocked Start Words", &State.SMAC_CheckStartWords)) State.Save();
             if (State.SMAC_CheckStartWords) {
-                ImGui::SameLine();
-                if (ToggleButton("Strict Detection", &State.SMAC_StartWordsStrict)) State.Save();
-                ImGui::SameLine();
-                ImGui::SetNextItemWidth(80.0f * State.dpiScale);
+                static const std::vector<const char*> SMAC_DETECTION_MODES = { "Default Detection", "Strict Detection" };
+                ImGui::SetNextItemWidth(70.0f * State.dpiScale);
                 if (ImGui::InputInt("Violations Before Action", &State.SMAC_StartWordsThreshold)) {
-                    if (State.SMAC_StartWordsThreshold < 1) State.SMAC_StartWordsThreshold = 1;
-                    State.Save();
+                    State.SMAC_StartWordsThreshold = std::clamp(State.SMAC_StartWordsThreshold, 1, 10);
                 }
                 if (State.SMAC_StartWords.empty())
                     ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No start words added!");
@@ -737,18 +877,31 @@ namespace GameTab {
                 InputString("New W\u043Erd", &newStartWord, ImGuiInputTextFlags_EnterReturnsTrue);
                 ImGui::SameLine();
                 if (AnimatedButton("Add Word##StartWord")) {
-                    State.SMAC_StartWords.push_back(newStartWord);
-                    State.Save();
-                    newStartWord = "";
+                    std::string newStartWordLower = strToLower(newStartWord);
+                    bool alreadyExists = std::any_of(State.SMAC_StartWords.begin(), State.SMAC_StartWords.end(),
+                        [&](auto& w) { return strToLower(w.first) == newStartWordLower; });
+                    if (!newStartWord.empty() && !alreadyExists) {
+                        State.SMAC_StartWords.push_back({ newStartWord, false });
+                        State.Save();
+                        newStartWord = "";
+                    }
                 }
                 if (!State.SMAC_StartWords.empty()) {
                     static int selectedStartWordIndex = 0;
                     selectedStartWordIndex = std::clamp(selectedStartWordIndex, 0, (int)State.SMAC_StartWords.size() - 1);
-                    std::vector<const char*> startWordVector(State.SMAC_StartWords.size(), nullptr);
-                    for (size_t i = 0; i < State.SMAC_StartWords.size(); i++) {
-                        startWordVector[i] = State.SMAC_StartWords[i].c_str();
-                    }
+                    std::vector<std::string> startWordDisplayStrings;
+                    for (auto& w : State.SMAC_StartWords)
+                        startWordDisplayStrings.push_back(w.first + (w.second ? " [Strict]" : " [Default]"));
+                    std::vector<const char*> startWordVector(startWordDisplayStrings.size(), nullptr);
+                    for (size_t i = 0; i < startWordDisplayStrings.size(); i++)
+                        startWordVector[i] = startWordDisplayStrings[i].c_str();
                     CustomListBoxInt("Start Word to Remove", &selectedStartWordIndex, startWordVector);
+                    ImGui::SameLine();
+                    int startWordMode = State.SMAC_StartWords[selectedStartWordIndex].second ? 1 : 0;
+                    if (CustomListBoxInt("Detection Mode##startwords", &startWordMode, SMAC_DETECTION_MODES, 130.0f * State.dpiScale)) {
+                        State.SMAC_StartWords[selectedStartWordIndex].second = (startWordMode == 1);
+                        State.Save();
+                    }
                     ImGui::SameLine();
                     if (AnimatedButton("Remove##StartWord")) {
                         State.SMAC_StartWords.erase(State.SMAC_StartWords.begin() + selectedStartWordIndex);
@@ -767,6 +920,10 @@ namespace GameTab {
             }
 
             if (IsInLobby() && ToggleButton("Attempt to Crash Lobby", &State.CrashSpamReport)) {
+                State.Save();
+            }
+
+            if (ToggleButton("Make Players Spawn at Random Vents", &State.RandomSpawns)) {
                 State.Save();
             }
 
@@ -806,9 +963,7 @@ namespace GameTab {
                 if (ToggleButton("Kick Everyone", &State.KickEveryone)) {
                     State.Save();
                 }
-                if (SteppedSliderFloat("Kick/Ban Delay", &State.AutoPunishDelay, 0.f, 10.f, 0.1f, "%.1f", ImGuiSliderFlags_NoInput)) {
-                    State.Save();
-                }
+                SteppedSliderFloat("Kick/Ban Delay", &State.AutoPunishDelay, 0.f, 10.f, 0.1f, "%.1f", ImGuiSliderFlags_NoInput);
                 ImGui::Dummy(ImVec2(7, 7) * State.dpiScale);
                 const char* buttonLabel = IsInGame() ? "Kick AFK Players" : "Kick AFK Players [GAME ONLY]";
                 if (ToggleButton(buttonLabel, &State.KickAFK)) {
@@ -828,17 +983,13 @@ namespace GameTab {
                 ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
                 if (State.KickAFK && ImGui::CollapsingHeader(header.c_str()))
                 {
-                    if (SteppedSliderFloat("Time Before Kick", &State.TimerAFK, 40.f, 350.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput)) {
-                        State.Save();
+                    SteppedSliderFloat("Time Before Kick", &State.TimerAFK, 40.f, 350.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput);
+                    if (State.SecondChance) {
+                        SteppedSliderFloat("Extra Time", &State.AddExtraTime, 15.f, 120.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput);
+                        SteppedSliderFloat("Min Time Before Adding", &State.ExtraTimeThreshold, 5.f, 60.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput);
                     }
-                    if (State.SecondChance && SteppedSliderFloat("Extra Time", &State.AddExtraTime, 15.f, 120.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput)) {
-                        State.Save();
-                    }
-                    if (State.SecondChance && SteppedSliderFloat("Min Time Before Adding", &State.ExtraTimeThreshold, 5.f, 60.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput)) {
-                        State.Save();
-                    }
-                    if (State.NotificationsAFK && SteppedSliderFloat("Warn-AFK Notifications Time", &State.NotificationTimeWarn, 5.f, 60.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput)) {
-                        State.Save();
+                    if (State.NotificationsAFK) {
+                        SteppedSliderFloat("Warn-AFK Notifications Time", &State.NotificationTimeWarn, 5.f, 60.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput);
                     }
                 }
                 ImGui::Dummy(ImVec2(3, 3) * State.dpiScale);
@@ -856,13 +1007,11 @@ namespace GameTab {
                     State.Save();
                 }
                 ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
-                if (ImGui::CollapsingHeader("BA-RP ~ Advanced Options"))
+                if (ImGui::CollapsingHeader("BRRP ~ Advanced Options"))
                 {
-                    if (SteppedSliderFloat("Maximum Rejoins", &State.LeaveCount, 1.f, 15.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput)) {
-                        State.Save();
-                    }
+                    SteppedSliderFloat("Maximum Rejoins", &State.LeaveCount, 1.f, 15.f, 1.f, "%.0f", ImGuiSliderFlags_NoInput);
                     ImGui::Dummy(ImVec2(5, 5) * State.dpiScale);
-                    if (ToggleButton("Blacklist Auto-Rejoin Players", &State.BL_AutoLeavers)) {
+                    if (ToggleButton("Blacklist Repeatedly Rejoining Players", &State.BL_AutoLeavers)) {
                         State.Save();
                     }
                 }
@@ -1455,8 +1604,7 @@ namespace GameTab {
                     ImGui::TextDisabled("No lobbies visited yet.");
                 }
                 else {
-                    if (SliderIntV2("Lobbies to Show", &State.LobbyHistoryLimit, 1, 50, "%d", ImGuiSliderFlags_NoInput))
-                        State.Save();
+                    SliderIntV2("Lobbies to Show", &State.LobbyHistoryLimit, 1, 50, "%d", ImGuiSliderFlags_NoInput);
                     int displayCount = (int)State.LobbyHistory.size() < State.LobbyHistoryLimit ? (int)State.LobbyHistory.size() : State.LobbyHistoryLimit;
                     ImGui::Text("Last %d/%d lobbies:", displayCount, State.LobbyHistoryLimit);
                     ImGui::Columns(3, "lobbyHistoryCols", false);
@@ -1565,15 +1713,6 @@ namespace GameTab {
                     ImGui::Separator();
                     ImGui::Dummy(ImVec2(3, 3) * State.dpiScale);
 
-                    ImGui::Text("Max Guardian Angels: %d", roleRates.GetRoleCount(app::RoleTypes__Enum::GuardianAngel));
-                    ImGui::Text("Guardian Angel Chance: %d%", options.GetRoleOptions().GetChancePerGame(RoleTypes__Enum::GuardianAngel));
-                    ImGui::Text("Guardian Angel Protect Cooldown: %.2f s", options.GetFloat(app::FloatOptionNames__Enum::GuardianAngelCooldown, 1.0F));
-                    ImGui::Text("Guardian Angel Protection Duration: %.2f s", options.GetFloat(app::FloatOptionNames__Enum::ProtectionDurationSeconds, 1.0F));
-
-                    ImGui::Dummy(ImVec2(3, 3) * State.dpiScale);
-                    ImGui::Separator();
-                    ImGui::Dummy(ImVec2(3, 3) * State.dpiScale);
-
                     ImGui::Text("Max Noisemakers: %d", roleRates.GetRoleCount(app::RoleTypes__Enum::Noisemaker));
                     ImGui::Text("Noisemaker Chance: %d%", options.GetRoleOptions().GetChancePerGame(RoleTypes__Enum::Noisemaker));
                     ImGui::Text("Noisemaker Alert Duration: %.2f s", options.GetFloat(app::FloatOptionNames__Enum::NoisemakerAlertDuration, 1.0F));
@@ -1595,6 +1734,23 @@ namespace GameTab {
                     ImGui::Text("Max Detectives: %d", roleRates.GetRoleCount(app::RoleTypes__Enum::Detective));
                     ImGui::Text("Detective Chance: %d%", options.GetRoleOptions().GetChancePerGame(RoleTypes__Enum::Detective));
                     ImGui::Text("Detective Suspect Limit: %.2f", options.GetFloat(app::FloatOptionNames__Enum::DetectiveSuspectLimit, 1.0F));
+
+                    ImGui::Dummy(ImVec2(3, 3)* State.dpiScale);
+                    ImGui::Separator();
+                    ImGui::Dummy(ImVec2(3, 3)* State.dpiScale);
+
+                    ImGui::Text("Max Guardian Angels: %d", roleRates.GetRoleCount(app::RoleTypes__Enum::GuardianAngel));
+                    ImGui::Text("Guardian Angel Chance: %d%", options.GetRoleOptions().GetChancePerGame(RoleTypes__Enum::GuardianAngel));
+                    ImGui::Text("Guardian Angel Protect Cooldown: %.2f s", options.GetFloat(app::FloatOptionNames__Enum::GuardianAngelCooldown, 1.0F));
+                    ImGui::Text("Guardian Angel Protection Duration: %.2f s", options.GetFloat(app::FloatOptionNames__Enum::ProtectionDurationSeconds, 1.0F));
+
+                    ImGui::Dummy(ImVec2(3, 3)* State.dpiScale);
+                    ImGui::Separator();
+                    ImGui::Dummy(ImVec2(3, 3)* State.dpiScale);
+
+                    ImGui::Text("Max Influencers: %d", roleRates.GetRoleCount(app::RoleTypes__Enum::SpiritGuide));
+                    ImGui::Text("Influencer Chance: %d%", options.GetRoleOptions().GetChancePerGame(RoleTypes__Enum::SpiritGuide));
+                    ImGui::Text("Influencer Message Cooldown: %.2f s", options.GetFloat(app::FloatOptionNames__Enum::SpiritGuideCooldownSeconds, 1.0F));
 
                     ImGui::Dummy(ImVec2(3, 3)* State.dpiScale);
                     ImGui::Separator();
@@ -1663,6 +1819,7 @@ namespace GameTab {
             }
             else CloseOtherGroups(Groups::General);
         }
+        ImGui::EndChild();
         ImGui::EndChild();
     }
 }

@@ -10,6 +10,25 @@
 using namespace std::string_view_literals;
 
 namespace DoorsTab {
+    static bool IsDecontamination(SystemTypes__Enum room) {
+        return room == SystemTypes__Enum::Decontamination || room == SystemTypes__Enum::Decontamination2 ||
+            room == SystemTypes__Enum::Decontamination3;
+    }
+
+    static void Unpin(SystemTypes__Enum room) {
+        State.pinnedDoors.erase(std::remove(State.pinnedDoors.begin(), State.pinnedDoors.end(), room), State.pinnedDoors.end());
+        State.softPinnedDoors.erase(std::remove(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), room), State.softPinnedDoors.end());
+        State.doorOpenTimes.clear();
+        State.pinnedDoorLastCheck.erase(room);
+    }
+
+    static void Pin(SystemTypes__Enum room, bool soft) {
+        if (IsDecontamination(room)) return;
+        Unpin(room);
+        (soft ? State.softPinnedDoors : State.pinnedDoors).push_back(room);
+        State.rpcQueue.push(new RpcCloseDoorsOfType(room, false));
+    }
+
 	void Render() {
 		if (IsInGame() && !State.mapDoors.empty()) {
 			ImGui::SameLine(100 * State.dpiScale);
@@ -23,7 +42,8 @@ namespace DoorsTab {
 				}
 				bool isOpen;
 				auto openableDoor = GetOpenableDoorByRoom(systemType);
-				if ("PlainDoor"sv == openableDoor->klass->parent->name
+				if (!openableDoor || !openableDoor->klass) continue;
+				if ((openableDoor->klass->parent && "PlainDoor"sv == openableDoor->klass->parent->name)
 					|| "PlainDoor"sv == openableDoor->klass->name) {
 					isOpen = reinterpret_cast<PlainDoor*>(openableDoor)->fields.Open;
 				}
@@ -34,26 +54,40 @@ namespace DoorsTab {
 					continue;
 				}
 				bool isPinned = std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), systemType) != State.pinnedDoors.end();
+
 				bool isSoftPinned = std::find(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), systemType) != State.softPinnedDoors.end();
-				if (isPinned || isSoftPinned)
-				{
-					ImGui::PushStyleColor(ImGuiCol_Text, { 1.f, 0.f, 0.f, 1.f });
-					if (ImGui::Selectable(TranslateSystemTypes(systemType), State.selectedDoor == systemType))
-						State.selectedDoor = systemType;
-					ImGui::PopStyleColor(1);
+				bool isSelected = std::find(State.selectedDoors.begin(), State.selectedDoors.end(), systemType) == State.selectedDoors.end();
+
+				ImVec4 selectableColor = isPinned ? ImVec4(1.f, 0.f, 0.f, 1.f) :
+                    isSoftPinned ? ImVec4(1.f, 0.65f, 0.f, 1.f) :
+					(State.RgbMenuTheme ? State.RgbColor : State.MenuThemeColor);
+
+				if (isPinned || isSoftPinned || !isOpen) ImGui::PushStyleColor(ImGuiCol_Text, selectableColor);
+
+				if (ImGui::Selectable(TranslateSystemTypes(systemType), !isSelected)) {
+					bool isCtrl = ImGui::IsKeyDown(0x11) || ImGui::IsKeyDown(0xA2) || ImGui::IsKeyDown(0xA3);
+					bool isShifted = ImGui::IsKeyDown(0x10);
+
+					if (isCtrl) {
+						if (isShifted) {
+							State.selectedDoors.clear();
+						}
+						else {
+							auto it_sel = std::find(State.selectedDoors.begin(), State.selectedDoors.end(), systemType);
+							if (it_sel != State.selectedDoors.end()) {
+								State.selectedDoors.erase(it_sel);
+							}
+							else {
+								State.selectedDoors.push_back(systemType);
+							}
+						}
+					}
+					else {
+						State.selectedDoors = { systemType };
+					}
 				}
-				else if (!isOpen)
-				{
-					ImGui::PushStyleColor(ImGuiCol_Text, State.RgbMenuTheme ? State.RgbColor : State.MenuThemeColor);
-					if (ImGui::Selectable(TranslateSystemTypes(systemType), State.selectedDoor == systemType))
-						State.selectedDoor = systemType;
-					ImGui::PopStyleColor(1);
-				}
-				else
-				{
-					if (ImGui::Selectable(TranslateSystemTypes(systemType), State.selectedDoor == systemType))
-						State.selectedDoor = systemType;
-				}
+
+				if (isPinned || isSoftPinned || !isOpen) ImGui::PopStyleColor(1);
 			}
 			if (shouldEndListBox)
 				ImGui::ListBoxFooter();
@@ -95,69 +129,43 @@ namespace DoorsTab {
 				}
 			}
 
-			if (AnimatedButton("Pin All Doors"))
-			{
-				for (auto door : State.mapDoors)
-				{
-					if (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), door) == State.pinnedDoors.end())
-					{
-						if (door != SystemTypes__Enum::Decontamination && door != SystemTypes__Enum::Decontamination2 && door != SystemTypes__Enum::Decontamination3)
-							State.rpcQueue.push(new RpcCloseDoorsOfType(door, true));
-					}
-				}
-			}
-			if (State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb) {
-				if (AnimatedButton("Soft Pin All Doors")) {
-					for (auto door : State.mapDoors) {
-						if (door != SystemTypes__Enum::Decontamination && door != SystemTypes__Enum::Decontamination2 && door != SystemTypes__Enum::Decontamination3) {
-							if (std::find(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), door) == State.softPinnedDoors.end())
-								State.softPinnedDoors.push_back(door);
-						}
-					}
-				}
-			}
-			if (AnimatedButton("Unpin All Doors"))
-			{
-				State.pinnedDoors.clear();
-				State.softPinnedDoors.clear();
-			}
+            if (AnimatedButton("Pin All Doors")) {
+                for (auto door : State.mapDoors) Pin(door, false);
+            }
+            const bool supportsSoftPin = State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb;
+            if (supportsSoftPin && AnimatedButton("Soft Pin All Doors")) {
+                for (auto door : State.mapDoors) Pin(door, true);
+            }
+            if (supportsSoftPin) ImGui::TextWrapped("Soft pins close doors 1.5 seconds after opening. Orange: soft pin. Red: hard pin.");
+            if (AnimatedButton("Unpin All Doors")) {
+                State.pinnedDoors.clear();
+                State.softPinnedDoors.clear();
+                State.doorOpenTimes.clear();
+                State.pinnedDoorLastCheck.clear();
+            }
 
 			ImGui::NewLine();
-			if (State.selectedDoor != SystemTypes__Enum::Hallway) {
-				auto plainDoor = GetPlainDoorByRoom(State.selectedDoor);
-				bool isPinned = std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), State.selectedDoor) != State.pinnedDoors.end();
-				bool isSoftPinned = std::find(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), State.selectedDoor) != State.softPinnedDoors.end();
-				bool isAirshipOrPolus = State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb;
-
-				if (AnimatedButton("Close Door")) {
-					State.rpcQueue.push(new RpcCloseDoorsOfType(State.selectedDoor, false));
+			if (!State.selectedDoors.empty()) {
+				if (AnimatedButton(State.selectedDoors.size() == 1 ? "Close Door" : "Close Doors")) {
+					for (auto door : State.selectedDoors)
+						State.rpcQueue.push(new RpcCloseDoorsOfType(door, false));
 				}
 
-				if (!isPinned && !isSoftPinned) {
-					if (AnimatedButton("Pin Door")) {
-						State.rpcQueue.push(new RpcCloseDoorsOfType(State.selectedDoor, true));
-					}
-					if (isAirshipOrPolus) {
-						if (AnimatedButton("Soft Pin Door")) {
-							State.softPinnedDoors.push_back(State.selectedDoor);
-							State.rpcQueue.push(new RpcCloseDoorsOfType(State.selectedDoor, false));
-						}
-					}
-				}
-				else if (isPinned) {
-					if (AnimatedButton("Unpin Door")) {
-						State.pinnedDoors.erase(std::remove(State.pinnedDoors.begin(), State.pinnedDoors.end(), State.selectedDoor), State.pinnedDoors.end());
-					}
-				}
-				else if (isSoftPinned) {
-					if (AnimatedButton("Unsoft Pin Door")) {
-						State.softPinnedDoors.erase(std::remove(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), State.selectedDoor), State.softPinnedDoors.end());
-					}
-				}
+                if (AnimatedButton(State.selectedDoors.size() == 1 ? "Pin Door" : "Pin Doors")) {
+                    for (auto door : State.selectedDoors) Pin(door, false);
+                }
+                if (supportsSoftPin && AnimatedButton(State.selectedDoors.size() == 1 ? "Soft Pin Door" : "Soft Pin Doors")) {
+                    for (auto door : State.selectedDoors) Pin(door, true);
+                }
+                if (AnimatedButton(State.selectedDoors.size() == 1 ? "Unpin Door" : "Unpin Doors")) {
+                    for (auto door : State.selectedDoors) Unpin(door);
+                }
 
-				if ((State.mapType == Settings::MapType::Pb || State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Fungle) && AnimatedButton("Open Door"))
+				if ((State.mapType == Settings::MapType::Pb || State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Fungle) &&
+					AnimatedButton(State.selectedDoors.size() == 1 ? "Open Door" : "Open Doors"))
 				{
-					State.rpcQueue.push(new RpcOpenDoorsOfType(State.selectedDoor));
+					for (auto door : State.selectedDoors)
+						State.rpcQueue.push(new RpcOpenDoorsOfType(door));
 				}
 			}
 			if (State.mapType == Settings::MapType::Pb || State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Fungle)

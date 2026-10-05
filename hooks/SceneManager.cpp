@@ -2,10 +2,12 @@
 #include "_hooks.h"
 #include "radar.hpp"
 #include "state.hpp"
+#include "security_doors.h"
 
 void dSceneManager_Internal_ActiveSceneChanged(Scene previousActiveScene, Scene newActiveScene, MethodInfo* method) {
 	//if (State.ShowHookLogs) Log.HookDebug("Hook dSceneManager_Internal_ActiveSceneChanged executed", false);
 	Radar::ResetMapPlayerPositions();
+    SecurityDoors::Reset();
 	State.IsAdminMapOpen = false;
 	State.IsNormalMapOpen = false;
 	State.softPinnedDoors.clear();

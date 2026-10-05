@@ -8,6 +8,9 @@ Base: supplied official v5.1.1 snapshot, with additions from supplied fanmade v5
 - Hard pin fixes: suppress open updates, prevent auto-open minigames bypassing pins, and re-close pinned doors. Non-host pulse requests wait for the queue to drain.
 - Pin modes are mutually exclusive per room. Unpin removes both. Decontamination is included in the door list, open/close commands, and pin controls; panic mode suspends enforcement.
 - Polus decontamination chambers have separate Upper and Lower labels based on their world positions, with unique selection IDs. Individual/multiple-room and all-door actions include both chambers.
+- Airship has a host-only Security door group: Kitchen hallway door 9 plus the two Electrical LeftExits. Close and hard pin block those three doors without closing the other Kitchen doors. Soft pin gives each opened door its own 1.5-second window. Unpin leaves the current door states unchanged.
+- Select Security and use Open Door (or Open Room Door while in Security) to open all three; hard pins must first be removed. Open All and Kitchen opens leave the Electrical exits unchanged. Kitchen opens and card-swipe auto-open cannot bypass a Security hard pin.
+- Security uses the game's LeftExits references and marks the normal and Electrical systems dirty for host replication. No added map objects or camera-system RPCs are used. If the expected door objects or metadata are unavailable, the controls report that instead of modifying another door.
 - Radar > Show Others in Map: player icons, optional body icons, zoom scaling, meeting-position snapshots, and hiding over chat/admin. Scene changes clear cached positions.
 - Settings > General > Show Keybinds: displays assigned shortcuts. The fanmade setting previously had no renderer.
 - Autokill, saved setting, and shortcut editor, using official target selection. Limited to active gameplay, one attempt per 250 ms.
@@ -26,6 +29,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 Output: artifacts/x64/SickoMenu-merged-x64.zip, containing SickoMenu.dll, version.dll, license, notes, and SHA-256 hashes. Use either injection or the version proxy as described in README. GitHub Actions builds the same package on main pushes, pull requests, and manual dispatch; published releases receive the package on their own tag.
 
+The build first compiles and runs the Security pin timer regression tests (20 scenarios covering hard pin, staggered soft-pin windows, repeated openings, unpin, and reset).
+
 ## Verification status
 
 Seven source integration checks pass. Both x64 release configurations compiled and linked successfully in [GitHub Actions run 37203322887](https://github.com/peamixpelletin-cpu/SickoMenu/actions/runs/37203322887), producing SickoMenu.dll and version.dll in a ZIP with SHA-256 hashes. The local Visual Studio installation still lacks C++ targets; compilation was completed on GitHub's Windows runner. **In-game testing remains outstanding.**
@@ -35,6 +40,7 @@ Verify in a private test lobby before relying on gameplay behavior:
 1. Soft-pin one/all rooms on Polus/Airship. Verify the 1.5-second delay, mode switching, and multiple-room unpin.
    On Polus, check that Decontamination (Upper) and Decontamination (Lower) can each be selected and controlled independently, including Ctrl multi-selection and all-door actions.
 2. Check hard pins with manual and Auto Open Doors as host/client; verify panic mode.
+   On Airship as host, select Security: close/open it and verify Kitchen door 9 and the two western Electrical exits from a second, unmodified client. Other Kitchen doors and the rest of the maze must retain their states. Check hard/soft pin, Kitchen/Open All bypass protection, Unpin All, meetings, panic mode, scene changes, and host migration. Open All must never open the Electrical exits. This new group has not yet been verified in-game.
 3. Check map overlay alignment on every map, different zoom/window sizes, and flipped Skeld. The inherited fanmade map-fit calculation needs visual validation against the current game.
 4. Check hiding over chat/admin, scene resets, and meeting snapshots resuming after exile.
 5. Save/reload settings; test autokill cooldown, meeting/dead-player behavior, and panic mode.

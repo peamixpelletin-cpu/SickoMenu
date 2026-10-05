@@ -14,6 +14,7 @@
 #include "console.hpp"
 #include <chrono>
 #include "achievements.hpp"
+#include "security_doors.h"
 
 using namespace std::string_view_literals;
 
@@ -175,6 +176,7 @@ static void onGameEnd() {
 
 void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
     if (State.ShowHookLogs) Log.HookDebug("Hook dInnerNetClient_Update executed", false);
+    SecurityDoors::UpdatePins();
     if (!State.PanicMode && IsInGame() && !State.InMeeting && !State.InExileUI)
         Radar::CaptureMapPlayerPositions();
 
@@ -223,6 +225,7 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
                     lastPinnedDoorClosePulse = now;
 
                     for (auto pinnedType : State.pinnedDoors) {
+                        if (SecurityDoors::IsGroup(pinnedType)) continue; // host-only group after host migration
                         State.rpcQueue.push(new RpcCloseDoorsOfType(pinnedType, false));
                     }
 
@@ -1392,44 +1395,16 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
             static auto lastCheck = std::chrono::system_clock::now();
             auto now = std::chrono::system_clock::now();
 
-            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastCheck).count() >= 100) /* <- trigger threshold (0,1 sec) */ {
-                for (auto it = State.TempBannedFCs.begin(); it != State.TempBannedFCs.end();) {
-                    if (now >= it->second) {
-                        it = State.TempBannedFCs.erase(it);
-                        State.Save();
-                    }
-                    else {
-                        if (IsInGame() || IsInLobby()) {
-                            for (auto p : GetAllPlayerControl()) {
+           for (auto p : GetAllPlayerControl()) {
                                 if (convert_from_string(p->fields.FriendCode) == it->first) {
                                     // Re-ban temp-banned:
                                     if (IsInGame()) {
-                                        State.rpcQueue.push(new PunishPlayer(p, false));
-                                    }
-                                    if (IsInLobby()) {
-                                        State.lobbyRpcQueue.push(new PunishPlayer(p, false));
-                                    }
-                                }
-                            }
-                        }
-                        ++it;
-                    }
-                }
-                lastCheck = now;
-            }
-        }
-
-        if (IsInLobby() && IsHost() && GameOptionsManager_get_HasOptions(GameOptionsManager_get_Instance(NULL), NULL) && *Game::pLocalPlayer != NULL) {
-            GameOptions options;
-            if (State.AutoHostRole) {
-                int index = (*Game::pLocalPlayer)->fields.PlayerId;
+    n                int index = (*Game::pLocalPlayer)->fields.PlayerId;
                 auto assignedRole = State.assignedRoles[index];
                 if (assignedRole != State.HostRoleToSet) {
                     int totalEngineers = (int)GetRoleCount(RoleType::Engineer, true) + (State.HostRoleToSet == RoleType::Engineer);
                     int totalScientists = (int)GetRoleCount(RoleType::Scientist, true) + (State.HostRoleToSet == RoleType::Scientist);
-                    int totalTrackers = (int)GetRoleCount(RoleType::Tracker, true) + (State.HostRoleToSet == RoleType::Tracker);
-                    int totalNoisemakers = (int)GetRoleCount(RoleType::Noisemaker, true) + (State.HostRoleToSet == RoleType::Noisemaker);
-                    int totalDetectives = (int)GetRoleCount(RoleType::Detective, true) + (State.HostRoleToSet == RoleType::Detective);
+                    int totalTrackers = (int)Getives = (int)GetRoleCount(RoleType::Detective, true) + (State.HostRoleToSet == RoleType::Detective);
                     int totalJudges = (int)GetRoleCount(RoleType::Judge, true) + (State.HostRoleToSet == RoleType::Judge);
                     int totalShapeshifters = (int)GetRoleCount(RoleType::Shapeshifter, true) + (State.HostRoleToSet == RoleType::Shapeshifter);
                     int totalPhantoms = (int)GetRoleCount(RoleType::Phantom, true) + (State.HostRoleToSet == RoleType::Phantom);
@@ -1438,31 +1413,13 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
                     int totalCrewmates = (int)GetRoleCount(RoleType::Crewmate, true) + (State.HostRoleToSet == RoleType::Crewmate);
 
                     int maxImpostors = GetMaxImpostorAmount((int)GetAllPlayerData().size());
-                    int sumOfImpostorRoles = totalImpostors + totalShapeshifters + totalPhantoms + totalVipers;
-                    int sumOfCrewmateRoles = totalEngineers + totalScientists + totalTrackers + totalNoisemakers + totalDetectives + totalJudges + totalCrewmates;
-
-                    if (State.HostRoleToSet == RoleType::Impostor || State.HostRoleToSet == RoleType::Shapeshifter || State.HostRoleToSet == RoleType::Phantom || State.HostRoleToSet == RoleType::Viper) {
-                        if (sumOfImpostorRoles <= maxImpostors) {
-                            if (options.GetGameMode() == GameModes__Enum::HideNSeek) State.HostRoleToSet = RoleType::Impostor;
+                    int sumOfImpostorRn                            if (options.GetGameMode() == GameModes__Enum::HideNSeek) State.HostRoleToSet = RoleType::Impostor;
                             State.assignedRoles[index] = State.HostRoleToSet;
                         }
                     }
                     else {
                         if (sumOfCrewmateRoles <= (int)GetAllPlayerData().size() - maxImpostors) {
-                            if (options.GetGameMode() == GameModes__Enum::HideNSeek) State.HostRoleToSet = RoleType::Engineer;
-                            State.assignedRoles[index] = State.HostRoleToSet;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (State.murderLoop) {
-            auto selectedPlayer = State.selectedPlayer.validate();
-            if (State.murderDelay <= 0) {
-                if (State.murderCount > 0 && selectedPlayer.has_value() && !selectedPlayer.get_PlayerData()->fields.Disconnected) {
-                    if (IsInGame()) {
-                        State.rpcQueue.push(new RpcMurderLoop(*Game::pLocalPlayer, selectedPlayer.get_PlayerControl(), 1, false));
+                            if (options.GetGameMode() == GameModes__Enum::HideNSeek) State.HostRoleToSet = RoleType::Engineer;      State.rpcQueue.push(new RpcMurderLoop(*Game::pLocalPlayer, selectedPlayer.get_PlayerControl(), 1, false));
                     }
                     else if (IsInLobby()) {
                         State.lobbyRpcQueue.push(new RpcMurderLoop(*Game::pLocalPlayer, selectedPlayer.get_PlayerControl(), 1, false));
@@ -1484,61 +1441,12 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
                     uint8_t gameDataTag = 5, rpcFlag = 2;
 
                     auto writer = MessageWriter_Get(SendOption__Enum::Reliable, NULL);
-                    MessageWriter_StartMessage(writer, gameDataTag, NULL);
-                    MessageWriter_WriteInt32(writer, (*Game::pAmongUsClient)->fields._.GameId, NULL);
-
-                    int maxPackedRpcs = 10 + GameOptions().GetInt(Int32OptionNames__Enum::MaxPlayers) * 2;
-
-                    for (int i = 0; i < maxPackedRpcs; ++i) {
-                        MessageWriter_StartMessage(writer, rpcFlag, NULL);
-                        MessageWriter_WritePacked(writer, (*Game::pLocalPlayer)->fields._.NetId, NULL);
-                        MessageWriter_WriteByte(writer, (uint8_t)RpcCalls__Enum::MurderPlayer, NULL);
+                    MessageWriter_StartMessage(wessageWriter_WriteByte(writer, (uint8_t)RpcCalls__Enum::MurderPlayer, NULL);
                         MessageExtensions_WriteNetObject(writer, (InnerNetObject*)(*Game::pLocalPlayer), NULL);
-                        MessageWriter_WriteInt32(writer, (int32_t)MurderResultFlags__Enum::Succeeded, NULL);
-                        MessageWriter_EndMessage(writer, NULL);
-                    }
-
-                    MessageWriter_EndMessage(writer, NULL);
-                    InnerNetClient_SendOrDisconnect((InnerNetClient*)(*Game::pAmongUsClient), writer, NULL);
-                    MessageWriter_Recycle(writer, NULL);
-
-                    State.farmDelay = GetFps() / 15;
-                    State.farmCount--;
-                }
-                else {
-                    State.farmLoop = false;
-                    State.farmCount = 0;
-                }
-            }
-            else State.farmDelay--;
-        }
-
-        if (State.suicideLoop) {
-            auto selectedPlayer = State.selectedPlayer.validate();
-            if (State.suicideDelay <= 0) {
-                if (State.suicideCount > 0 && selectedPlayer.has_value() && !selectedPlayer.get_PlayerData()->fields.Disconnected) {
-                    if (IsInGame()) {
-                        State.rpcQueue.push(new RpcMurderPlayer(selectedPlayer.get_PlayerControl(), selectedPlayer.get_PlayerControl()));
+                        MessageWriter_WriteInt32(writer, (int32_tpcQueue.push(new RpcMurderPlayer(selectedPlayer.get_PlayerControl(), selectedPlayer.get_PlayerControl()));
                     }
                     else if (IsInLobby()) {
-                        State.lobbyRpcQueue.push(new RpcMurderPlayer(selectedPlayer.get_PlayerControl(), selectedPlayer.get_PlayerControl()));
-                    }
-                    State.suicideDelay = GetFps() / 12;
-                    State.suicideCount--;
-                }
-                else {
-                    State.suicideLoop = false;
-                    State.suicideCount = 0;
-                }
-            }
-            else State.suicideDelay--;
-        }
-    }
-    catch (Exception* ex) {
-        onGameEnd();
-        InnerNetClient_DisconnectInternal(__this, DisconnectReasons__Enum::Error, convert_to_string("InnerNetClient_Update exception"), NULL);
-        InnerNetClient_EnqueueDisconnect(__this, DisconnectReasons__Enum::Error, convert_to_string("InnerNetClient_Update exception"), NULL);
-        LOG_DEBUG("InnerNetClient_Update Exception " + convert_from_string(ex->fields._message));
+                        State.lobbyRpcQueue.push(new RpcMurderPlayer(selectedPla_DEBUG("InnerNetClient_Update Exception " + convert_from_string(ex->fields._message));
     }
     catch (...) {
         LOG_ERROR("Exception occurred in InnerNetClient_Update (InnerNetClient)");
@@ -1560,21 +1468,7 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
 
 
         static int AutoRepairSabotageDelay = 100;
-        if (AutoRepairSabotageDelay <= 0) {
-            if (State.AutoRepairSabotage) {
-                RepairSabotage(*Game::pLocalPlayer);
-                AutoRepairSabotageDelay = 100;
-            }
-        }
-        else {
-            AutoRepairSabotageDelay--;
-        }
-    }
-
-    if (State.FollowerCam != nullptr && State.shadowCollab != nullptr) {
-        auto hud = Game::HudManager.GetInstance();
-        auto chatState = hud->fields.Chat->fields.state;
-        bool chatOpen = chatState == ChatControllerState__Enum::Open || chatState == ChatControllerState__Enum::Opening || chatState == ChatControllerState__Enum::Closing;
+        if (AutoRepairSabota::Open || chatState == ChatControllerState__Enum::Opening || chatState == ChatControllerState__Enum::Closing;
 
         auto fullScreen = hud->fields.FullScreen;
         Color fullScreenCol = fullScreen != NULL ? SpriteRenderer_get_color(fullScreen, NULL) : Color(1.f, 1.f, 1.f, 0.f);
@@ -1590,31 +1484,7 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
             KillOverlay_get_IsOpen((KillOverlay*)hud->fields.KillOverlay, NULL);
 
         float oldCamHeight = Camera_get_orthographicSize(State.FollowerCam, NULL);
-        // State.EnableZoom_ResolutionSetFlag = false;
-
-        auto mig = MatchInfoGuide_get_Instance(NULL);
-        bool migOpen = mig != NULL && MatchInfoGuide_get_IsActive(mig, NULL);
-
-        bool shouldEnableZoom = (!State.InMeeting && !State.InExileUI &&
-            !chatOpen && !migOpen && !isFullScreenActive && !isGameMenuActive && !isKillOverlayActive &&
-            (State.GameLoaded || (IsInLobby() && State.LobbyTimer <= 600.f - (Time_get_deltaTime(NULL) * 20) )) && !State.PanicMode);
-        // from my testing, deltaTime * 20 doesn't cause UI bugs in the lobby
-        float camHeight = shouldEnableZoom && State.EnableZoom ?
-            (State.CameraHeight * 3) : 3.f;
-
-        float del = camHeight - oldCamHeight;
-        float step = std::abs(del) * Time_get_deltaTime(NULL) * 12;
-
-        float newCamHeight = 0.f;
-        float precision = 1e-6f;
-
-        if (!State.EnableZoom_SmoothZoom || !shouldEnableZoom) newCamHeight = camHeight;
-        else if (del < 0.f) newCamHeight = (std::max)(camHeight, oldCamHeight - step);
-        else if (del > 0.f) newCamHeight = (std::min)(camHeight, oldCamHeight + step);
-
-        if (std::abs(del) > precision) { // minimize floating point errors
-            State.HasRefreshedUI = false;
-            Camera_set_orthographicSize(State.FollowerCam, newCamHeight, NULL);
+        // State.et_orthographicSize(State.FollowerCam, newCamHeight, NULL);
             // State.EnableZoom_PreResolutionSetCamHeight = newCamHeight;
             float aspect = Camera_get_aspect(State.FollowerCam, NULL);
             Camera_set_orthographicSize(State.shadowCollab->fields.ShadowCamera, newCamHeight, NULL);
@@ -1628,54 +1498,14 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
         }
 
         /*if (State.EnableZoom && !State.InMeeting && !chatOpen && (State.GameLoaded || IsInLobby()) && !State.PanicMode) //chat button disappears after meeting
-            Camera_set_orthographicSize(State.FollowerCam, State.CameraHeight * 3, NULL);
-        else
-            Camera_set_orthographicSize(State.FollowerCam, 3.0f, NULL);*/
-        
-        Transform* cameraTransform = Component_get_transform((Component_1*)State.FollowerCam, NULL);
-        Vector3 cameraVector3 = Transform_get_position(cameraTransform, NULL);
-        if (State.EnableZoom && !State.InMeeting && State.CameraHeight > 3.0f)
-            Transform_set_position(cameraTransform, { cameraVector3.x, cameraVector3.y, 100 }, NULL);
+            Camera_set_ort, 100 }, NULL);
     }
 
     if (!State.PanicMode && (IsInGame() || IsInLobby())) {
         if (State.FreeCam) {
             auto mainCamera = Camera_get_main(NULL);
 
-            Transform* cameraTransform = Component_get_transform((Component_1*)mainCamera, NULL);
-            Vector3 cameraVector3 = Transform_get_position(cameraTransform, NULL);
-
-            if (State.camPos.x == NULL) {
-                State.camPos = cameraVector3;
-            }
-            if (State.prevCamPos.x == NULL) {
-                State.prevCamPos = cameraVector3;
-            }
-
-            auto kbjPlayer = (Player*)KeyboardJoystick__TypeInfo->static_fields->player;
-            // BYTE arr[256];
-            if (/*GetKeyboardState(arr) && */kbjPlayer != NULL && !State.ChatFocused)
-            {
-                // adhere to the game's keybinds, which can be changed in game
-
-                float xOffset = 0, yOffset = 0;
-                if (Player_GetButton(kbjPlayer, 44, NULL) /*(arr[0x57] & 0x80) != 0*/) {
-                    yOffset = 1;
-                }
-                if (Player_GetButton(kbjPlayer, 39, NULL) /*(arr[0x41] & 0x80) != 0*/) {
-                    xOffset = -1;
-                }
-                if (Player_GetButton(kbjPlayer, 42, NULL) /*(arr[0x53] & 0x80) != 0*/) {
-                    yOffset = -1;
-                }
-                if (Player_GetButton(kbjPlayer, 40, NULL) /*(arr[0x44] & 0x80) != 0*/)
-                {
-                    xOffset = 1;
-                }
-                float magnitude = (xOffset == 0 && yOffset == 0) ? 1 : sqrt(xOffset * xOffset + yOffset * yOffset);
-
-                float del = Time_get_deltaTime(NULL); // in seconds
-                //check for zero and prevent you from moving ~1.414 times faster diagonally
+            Transform* cameraTransform = Component_get_transform((Component_1*)mainCiagonally
                 State.camPos.x += float(del * State.FreeCamSpeed * 3.f * xOffset / magnitude);
                 State.camPos.y += float(del * State.FreeCamSpeed * 3.f * yOffset / magnitude);
                 // 3 is multiplied because that is 1x speed as the ghost
@@ -1685,57 +1515,11 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
         }
 
         static float petRpcDelay = 0.f;
-        if (State.ControlPet && *Game::pLocalPlayer != nullptr && (IsInGame() || IsInLobby())) {
-            // reference: https://github.com/MrDiamond64/Hydra/blob/main/src/routines/PetPlayer.cs
-
-            auto local = *Game::pLocalPlayer;
-            if (State.petPos.x == NULL) {
-                State.petPos = GetTrueAdjustedPosition(*Game::pLocalPlayer);
-            }
-
-            auto kbjPlayer = (Player*)KeyboardJoystick__TypeInfo->static_fields->player;
-            // BYTE arr[256];
-            if (/*GetKeyboardState(arr) && */kbjPlayer != NULL && !State.ChatFocused)
-            {
-                float xOffset = 0, yOffset = 0;
-                if (Player_GetButton(kbjPlayer, 44, NULL) /*(arr[0x57] & 0x80) != 0*/) {
-                    yOffset = 1;
-                }
-                if (Player_GetButton(kbjPlayer, 39, NULL) /*(arr[0x41] & 0x80) != 0*/) {
-                    xOffset = -1;
-                }
-                if (Player_GetButton(kbjPlayer, 42, NULL) /*(arr[0x53] & 0x80) != 0*/) {
-                    yOffset = -1;
-                }
-                if (Player_GetButton(kbjPlayer, 40, NULL) /*(arr[0x44] & 0x80) != 0*/)
-                {
-                    xOffset = 1;
-                }
-                float magnitude = (xOffset == 0 && yOffset == 0) ? 1 : sqrt(xOffset * xOffset + yOffset * yOffset);
-
-                float del = Time_get_deltaTime(NULL); // in seconds
-                //check for zero and prevent you from moving ~1.414 times faster diagonally
-
-                if (!State.FreeCam) {
-                    State.petPos.x += float(del * 5.f * xOffset / magnitude);
-                    State.petPos.y += float(del * 5.f * yOffset / magnitude);
-                }
-            }
-
-            auto mainCamera = Camera_get_main(NULL);
-            Transform* cameraTransform = Component_get_transform((Component_1*)mainCamera, NULL);
+        if (State.ControlPet && *Game::pLocalPlayer != nullptr && (Iomponent_get_transform((Component_1*)mainCamera, NULL);
             Vector3 cameraVector3 = Transform_get_position(cameraTransform, NULL);
 
             if (!State.FreeCam) {
-                Transform_set_position(cameraTransform, { State.petPos.x, State.petPos.y }, NULL);
-            }
-
-            if (State.prevCamPos.x == NULL) {
-                State.prevCamPos = cameraVector3;
-            }
-
-            if (petRpcDelay <= 0.f && local->fields.MyPhysics != NULL) {
-                auto currentPet = local->fields.cosmetics->fields.currentPet;
+                Transform_set_position(cameraTransform, { State.petPos.x, StatPet = local->fields.cosmetics->fields.currentPet;
                 PetBehaviour_SetGettingPet(currentPet, true, State.petPos, NULL);
 
                 // auto pettingHand = CosmeticsLayer_get_PettingHand(local->fields.cosmetics, NULL);

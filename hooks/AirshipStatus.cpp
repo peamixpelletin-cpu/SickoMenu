@@ -4,6 +4,7 @@
 #include "toasts.hpp"
 #include "logger.h"
 #include "utility.h"
+#include "security_doors.h"
 
 void dAirshipStatus_OnEnable(AirshipStatus* __this, MethodInfo* method)
 {
@@ -27,6 +28,7 @@ void dAirshipStatus_OnEnable(AirshipStatus* __this, MethodInfo* method)
         State.softPinnedDoors.clear();
         State.doorOpenTimes.clear();
         State.pinnedDoorLastCheck.clear();
+        SecurityDoors::Reset();
 
 		il2cpp::Array allDoors = __this->fields._.AllDoors;
 
@@ -35,6 +37,8 @@ void dAirshipStatus_OnEnable(AirshipStatus* __this, MethodInfo* method)
 				State.mapDoors.push_back(door->fields.Room);
 		}
 
+        if (std::find(State.mapDoors.begin(), State.mapDoors.end(), SystemTypes__Enum::Security) == State.mapDoors.end())
+            State.mapDoors.push_back(SystemTypes__Enum::Security);
 		std::sort(State.mapDoors.begin(), State.mapDoors.end());
 
 		if (State.AutoFakeRole) {

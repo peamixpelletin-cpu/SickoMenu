@@ -2,9 +2,14 @@
 #include "_hooks.h"
 #include "state.hpp"
 #include "_rpc.h"
+#include "security_doors.h"
 
 void dPlainDoor_SetDoorway(PlainDoor* __this, bool open, MethodInfo* method) {
 	if (State.ShowHookLogs) Log.HookDebug("Hook dPlainDoor_SetDoorway executed", false);
+    if (open && SecurityDoors::IsHardPinnedKitchen(reinterpret_cast<OpenableDoor*>(__this))) {
+        SecurityDoors::CloseKitchen();
+        return;
+    }
 	if (!State.PanicMode && Game::pShipStatus && *Game::pShipStatus && open && (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), __this->fields._.Room) != State.pinnedDoors.end())) {
 		// Close locally for instant feedback before the RPC round-trips back
 		app::PlainDoor_SetDoorway(__this, false, method);

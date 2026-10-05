@@ -8,6 +8,7 @@
 #include "replay.hpp"
 #include "profiler.h"
 #include "game.h"
+#include "security_doors.h"
 
 #include <cstring>
 
@@ -283,6 +284,13 @@ bool DetectCheatSabotage(SystemTypes__Enum systemType, PlayerControl* player, ui
 
 void dShipStatus_UpdateSystem(ShipStatus* __this, SystemTypes__Enum systemType, PlayerControl* player, uint8_t amount, MethodInfo* method) {
     if (State.ShowHookLogs) Log.HookDebug("Hook dShipStatus_UpdateSystem executed", false);
+    // Security owns only Kitchen door 9. Reject its open before vanilla applies
+    // it, and publish just that door's state instead of closing the whole Kitchen.
+    if (systemType == SystemTypes__Enum::Doors && (amount & 64) != 0 &&
+        SecurityDoors::IsHardPinnedKitchen(FindDoorFromDoorsSystemAmount(__this, amount))) {
+        SecurityDoors::CloseKitchen();
+        return;
+    }
     LOG_DEBUG(std::format("SystemType {} updated with amount {}", (std::string)TranslateSystemTypes(systemType), amount).c_str());
     OpenableDoor* hardPinnedDoor = nullptr;
     SystemTypes__Enum hardPinnedRoom = SystemTypes__Enum::Hallway;

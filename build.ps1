@@ -13,6 +13,13 @@ $msbuild = Join-Path $installation 'MSBuild/Current/Bin/MSBuild.exe'
 if (!(Test-Path -LiteralPath $msbuild)) { throw "MSBuild not found: $msbuild" }
 $outputRoot = Join-Path $projectRoot "artifacts/$Platform"
 New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
+$testOutput = Join-Path $outputRoot 'tests'
+& $msbuild (Join-Path $projectRoot 'tests/security_doors_tests.vcxproj') /nologo /v:minimal /t:Rebuild `
+    '/p:Configuration=Release' "/p:Platform=$Platform" "/p:PlatformToolset=$PlatformToolset" `
+    "/p:OutDir=$testOutput/" "/p:IntDir=$testOutput/obj/"
+if ($LASTEXITCODE -ne 0) { throw 'Security door tests failed to build.' }
+& (Join-Path $testOutput 'security_doors_tests.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Security door tests failed.' }
 foreach ($configuration in @('Release', 'Release_Version')) {
     $buildOutput = Join-Path $outputRoot $configuration
     $intermediates = Join-Path $projectRoot "artifacts/obj/$Platform/$configuration"

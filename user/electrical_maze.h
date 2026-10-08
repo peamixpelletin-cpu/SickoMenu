@@ -9,11 +9,10 @@ namespace ElectricalMaze {
     struct Snapshot {
         std::array<DoorState, DoorCount> doors{};
         uint64_t generation = 0;
-        bool ready = false, host = false, experimental = false;
+        bool ready = false, host = false;
         std::string status;
     };
     Snapshot Read();
-    void EnableExperimental(bool enabled);
     void Queue(unsigned door, bool open, uint64_t generation);
     void Update(); // Unity/game thread only; UI reads snapshots and queues commands.
     void Reset();

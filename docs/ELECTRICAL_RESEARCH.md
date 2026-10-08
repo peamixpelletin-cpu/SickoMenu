@@ -2,13 +2,17 @@
 
 Reviewed 2026-10-09 against the supplied Finnish research PDF, public project sources, and the installed game's IL2CPP metadata and map assets.
 
+## Observed result and current behavior
+
+The user reported that the experimental non-host click kicked the alt from an official server. The exact disconnect reason and packet logs were not provided, so this establishes a failed attempt, not the precise server check. The direct state sender and its opt-in UI have now been removed. Electrical controls are host-only; non-hosts can view the live map. No alternate method satisfying official server + only non-host client modded has been verified.
+
 ## What the implementation uses
 
 The Airship maze is the `ElectricalDoors` system at `SystemTypes.Decontamination` (18), separate from ordinary Kitchen/Brig doors and the lights sabotage system. Its twelve `StaticDoor` references expose `SetOpen` and an `IsOpen` field. The installed metadata exposes `Serialize(MessageWriter, bool)`, `Deserialize(MessageReader, bool)` and `UpdateSystem(PlayerControl, MessageReader)`. `UpdateSystem` shares the empty-method RVA with `Deteriorate`; normal repair commands are not the useful control path.
 
-Host changes set the native system's dirty flag. The opt-in non-host experiment invokes the current build's serializer, framed as GameData -> ShipStatus Data -> system 18. No integer encoding is guessed, no old packed/fixed format is copied, and no nested-message bypass is used. Only the selected local door is changed before serialization; remaining door states come from the live system. A successful send call is not a server acknowledgement or proof of other clients' state.
+Host changes set the native system's dirty flag. The removed experiment invoked the current build's serializer, framed as GameData -> ShipStatus Data -> system 18. It did not guess integer encoding or use the historical nested-message bypass. A successful send call was not a server acknowledgement or proof of other clients' state.
 
-The DLL does not persist the experimental option across scene changes or automatically retry it. Meetings, panic, scene changes, invalid metadata and stale generations discard queued commands. Losing host authority requires the explicit experimental option before a queued command can apply.
+Current code has no non-host state sender or experimental toggle. Commands are checked for current host authority both when queued and when processed. Meetings, panic and scene changes discard pending actions.
 
 ## Server evidence
 
@@ -16,10 +20,16 @@ The DLL does not persist the experimental option across scene changes or automat
 - [Impostor InnerShipStatus](https://github.com/Impostor/Impostor/blob/master/src/Impostor.Server/Net/Inner/Objects/ShipStatus/InnerShipStatus.cs): host and broadcast validation precede system deserialization. A regular non-host ShipStatus update is not expected to pass default validation.
 - [Hydra v1.9.0 release notes](https://github.com/MrDiamond64/Hydra/releases/tag/v1.9.0): the project reports that the historical broad bypass was patched at its root cause. It supplies no evidence that this Electrical experiment currently works on official servers.
 
-The research report explicitly found no verified current official-server bypass. Official backend behavior cannot be inferred from an open-source replacement. This build contains an experiment, not a verified authority bypass.
+The research report explicitly found no verified current official-server bypass. Official backend behavior cannot be inferred from an open-source replacement. The failed experiment is no longer present in this build.
 
-## Required multiplayer validation
+## Remaining validation
 
-Use a controlled lobby with a host, the non-host test client, and an unmodified observer. Record the exact game version and server implementation/configuration. First verify normal host control on one door. Then enable the experimental option and change one door as non-host. The observer must confirm which door changed, whether the other eleven were preserved, and whether the host later restores it. Record rejected/disconnected, local-only, remotely visible then corrected, or remotely visible and persistent as separate outcomes.
+Host Electrical controls and the map still need in-game validation. Non-host Electrical clicks must not mutate doors or send ShipStatus state. Automated tests cover authority gating, target isolation, stale generations, index bounds and pin timing.
 
-No multiplayer results have been recorded for this feature. Automated tests cover target isolation, authority/opt-in gating, stale generations, index bounds and pin timing; they do not establish server acceptance or remote visibility.
+## Separate Polus client regression
+
+The supplied official utility used `RpcUpdateSystem(Doors, doorId | 64)` for each matching door and `RpcCloseDoorsOfType(room)` to close them, with no host-only gate. The paired-door rewrite had introduced a host gate; that regression is now removed by a separate client branch using those same ordinary RPCs. The host's direct state synchronization is never called as non-host.
+
+Open targets the two actual physical door references of the selected chamber. Since all four Polus physical doors share one Room, Close takes a snapshot, closes the shared room, and requests reopening of non-selected doors that were previously open. Hard-pinned peer chambers are not reopened. This can create a brief close on the other chamber and cannot cancel a native host-controlled decon cycle. Non-host pin requests only react to observed door openings and have a 500 ms minimum interval.
+
+The user did not check the old behavior from another client's screen. Consequently the restored client request path is not claimed to be proven global control; it requires an unmodified observer test, particularly during active cycles and when the other chamber is open.

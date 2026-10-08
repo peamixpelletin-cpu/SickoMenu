@@ -28,12 +28,7 @@ namespace DoorsTab {
             return;
         }
         if (!maze.host) {
-            bool experimental = maze.experimental;
-            if (ImGui::Checkbox("Experimental non-host", &experimental)) {
-                ElectricalMaze::EnableExperimental(experimental);
-                maze.experimental = experimental;
-            }
-            ImGui::TextWrapped("Unverified: the server may reject this or disconnect you. Dots show local state; another player must confirm visibility.");
+            ImGui::TextWrapped("View only: Electrical control requires host. The previous non-host state-send attempt caused an official-server kick and has been removed.");
         }
         else ImGui::TextWrapped("Click a door to open or close it for the lobby.");
         ImGui::TextUnformatted("Green: open   Red: closed");
@@ -75,7 +70,7 @@ namespace DoorsTab {
             const auto p = point(door.x, door.y);
             ImGui::SetCursorScreenPos(ImVec2(p.x - radius, p.y - radius));
             ImGui::PushID(static_cast<int>(i));
-            if (ImGui::InvisibleButton("electrical-door", ImVec2(radius * 2, radius * 2)) && (maze.host || maze.experimental))
+            if (ImGui::InvisibleButton("electrical-door", ImVec2(radius * 2, radius * 2)) && maze.host)
                 ElectricalMaze::Queue(i, !door.open, maze.generation);
             const bool hovered = ImGui::IsItemHovered();
             draw->AddCircleFilled(p, radius, door.open ? IM_COL32(42, 193, 110, 255) : IM_COL32(233, 75, 83, 255));
@@ -84,7 +79,7 @@ namespace DoorsTab {
                 ImGui::BeginTooltip();
                 ImGui::Text("Door %u - %s", i + 1, names[i]);
                 ImGui::TextUnformatted(door.open ? "Open" : "Closed");
-                if (!maze.host && !maze.experimental) ImGui::TextUnformatted("Host control, or enable the experimental attempt.");
+                if (!maze.host) ImGui::TextUnformatted("The host controls this door.");
                 ImGui::EndTooltip();
             }
             ImGui::PopID();
@@ -241,7 +236,7 @@ namespace DoorsTab {
 
 			ImGui::NewLine();
             if (State.mapType == Settings::MapType::Pb) {
-                ImGui::TextWrapped("Decontamination Upper / Lower: host only. Open opens BOTH doors of the selected chamber. Close closes both. Each chamber has independent pins.");
+                ImGui::TextWrapped("Decontamination Upper / Lower: Open targets BOTH doors of the selected chamber. Close and pins also work through normal door requests as non-host. A running decon cycle can override client requests. Non-host Close may briefly close the other chamber before restoring its open doors.");
             }
             if (State.mapType == Settings::MapType::Airship) {
                 ImGui::TextWrapped("KitchenEast: only the east Kitchen hallway door. Host only. Electrical doors are controlled separately on the map.");

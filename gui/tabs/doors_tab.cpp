@@ -4,46 +4,23 @@
 #include "gui-helpers.hpp"
 #include "imgui/imgui.h"
 #include "state.hpp"
+#include "security_doors.h"
+#include "polus_decon.h"
 #include "utility.h"
 #include "gui-helpers.hpp"
 
 using namespace std::string_view_literals;
 
 namespace DoorsTab {
-    static bool IsDecontamination(SystemTypes__Enum room) {
-        return room == SystemTypes__Enum::Decontamination || room == SystemTypes__Enum::Decontamination2 ||
-            room == SystemTypes__Enum::Decontamination3;
-    }
-
     static const char* GetDoorLabel(SystemTypes__Enum room) {
-        if (State.mapType != Settings::MapType::Pb || !IsDecontamination(room) ||
-            !Game::pShipStatus || !*Game::pShipStatus || !(*Game::pShipStatus)->fields.AllDoors)
-            return TranslateSystemTypes(room);
-
-        // Use the chamber's average world Y, not an assumed system-ID ordering.
-        // Each chamber can contain multiple physical doors with the same Room.
-        float roomY = 0.f, otherY = 0.f;
-        int roomCount = 0, otherCount = 0;
-        for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors)) {
-            if (!door || !IsDecontamination(door->fields.Room)) continue;
-            auto transform = app::Component_get_transform(reinterpret_cast<Component_1*>(door), nullptr);
-            if (!transform) continue;
-            const float y = app::Transform_get_position(transform, nullptr).y;
-            if (door->fields.Room == room) {
-                roomY += y;
-                ++roomCount;
-            }
-            else {
-                otherY += y;
-                ++otherCount;
-            }
-        }
-        if (roomCount == 0 || otherCount == 0) return TranslateSystemTypes(room);
-        return roomY / roomCount > otherY / otherCount ?
-            "Decontamination (Upper)" : "Decontamination (Lower)";
+        if (SecurityDoors::IsGroup(room)) return "Security";
+        if (PolusDecon::IsGroup(room)) return PolusDecon::Label(room);
+        return TranslateSystemTypes(room);
     }
 
     static void Unpin(SystemTypes__Enum room) {
+        if (SecurityDoors::IsGroup(room)) SecurityDoors::Reset();
+        if (PolusDecon::IsGroup(room)) PolusDecon::Reset(room);
         State.pinnedDoors.erase(std::remove(State.pinnedDoors.begin(), State.pinnedDoors.end(), room), State.pinnedDoors.end());
         State.softPinnedDoors.erase(std::remove(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), room), State.softPinnedDoors.end());
         State.doorOpenTimes.clear();
@@ -51,19 +28,29 @@ namespace DoorsTab {
     }
 
     static void Pin(SystemTypes__Enum room, bool soft) {
+        if (SecurityDoors::IsGroup(room) && !SecurityDoors::CanControl(true)) return;
+        if (PolusDecon::IsGroup(room) && !PolusDecon::CanControl(room, true)) return;
         Unpin(room);
         (soft ? State.softPinnedDoors : State.pinnedDoors).push_back(room);
         State.rpcQueue.push(new RpcCloseDoorsOfType(room, false));
     }
 
 	void Render() {
+        if (IsInGame()) PolusDecon::RefreshEntries();
 		if (IsInGame() && !State.mapDoors.empty()) {
 			ImGui::SameLine(100 * State.dpiScale);
 			ImGui::BeginChild("doors#list", ImVec2(200, 0) * State.dpiScale, true, ImGuiWindowFlags_NoBackground);
 			bool shouldEndListBox = ImGui::ListBoxHeader("###doors#list", ImVec2(200, 150) * State.dpiScale);
 			if (shouldEndListBox) {
 				for (auto systemType : State.mapDoors) {
-					bool isOpen;
+					bool isOpen = false;
+					if (SecurityDoors::IsGroup(systemType)) {
+                        SecurityDoors::ReadState(isOpen);
+                    }
+                    else if (PolusDecon::IsGroup(systemType)) {
+                        PolusDecon::ReadState(systemType, isOpen);
+                    }
+                    else {
 					auto openableDoor = GetOpenableDoorByRoom(systemType);
 					if (!openableDoor || !openableDoor->klass) continue;
 					if ((openableDoor->klass->parent && "PlainDoor"sv == openableDoor->klass->parent->name)
@@ -76,6 +63,7 @@ namespace DoorsTab {
 					else {
 						continue;
 					}
+                    }
 					bool isPinned = std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), systemType) != State.pinnedDoors.end();
 
 					bool isSoftPinned = std::find(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), systemType) != State.softPinnedDoors.end();
@@ -144,6 +132,7 @@ namespace DoorsTab {
 				{
 					for (auto door : State.mapDoors)
 					{
+						if (SecurityDoors::IsGroup(door)) continue;
 						State.rpcQueue.push(new RpcOpenDoorsOfType(door));
 					}
 				}
@@ -163,6 +152,8 @@ namespace DoorsTab {
             }
             if (supportsSoftPin) ImGui::TextWrapped("Soft pins close doors 1.5 seconds after opening. Orange: soft pin. Red: hard pin.");
             if (AnimatedButton("Unpin All Doors")) {
+                SecurityDoors::Reset();
+                PolusDecon::Reset();
                 State.pinnedDoors.clear();
                 State.softPinnedDoors.clear();
                 State.doorOpenTimes.clear();
@@ -170,6 +161,15 @@ namespace DoorsTab {
             }
 
 			ImGui::NewLine();
+            if (State.mapType == Settings::MapType::Pb) {
+                ImGui::TextWrapped("Decontamination Upper / Lower: separate chambers, host only. Open starts the normal cycle from the side nearest you. Close stops the cycle and closes both chamber doors.");
+            }
+            if (State.mapType == Settings::MapType::Airship) {
+                ImGui::TextWrapped("Security: Kitchen hallway door and both Electrical exits. Host only. Select Security and Open Door to open all three; Open All leaves Electrical unchanged.");
+                bool anyOpen = false;
+                if (!SecurityDoors::ReadState(anyOpen))
+                    ImGui::TextWrapped("Security controls unavailable for this map layout.");
+            }
 			if (!State.selectedDoors.empty()) {
 				if (AnimatedButton(State.selectedDoors.size() == 1 ? "Close Door" : "Close Doors")) {
 					for (auto door : State.selectedDoors)

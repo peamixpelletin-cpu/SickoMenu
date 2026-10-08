@@ -14,6 +14,8 @@
 #include "console.hpp"
 #include <chrono>
 #include "achievements.hpp"
+#include "security_doors.h"
+#include "polus_decon.h"
 
 using namespace std::string_view_literals;
 
@@ -175,6 +177,8 @@ static void onGameEnd() {
 
 void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
     if (State.ShowHookLogs) Log.HookDebug("Hook dInnerNetClient_Update executed", false);
+    SecurityDoors::UpdatePins();
+    PolusDecon::UpdatePins();
     if (!State.PanicMode && IsInGame() && !State.InMeeting && !State.InExileUI)
         Radar::CaptureMapPlayerPositions();
 
@@ -223,6 +227,7 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
                     lastPinnedDoorClosePulse = now;
 
                     for (auto pinnedType : State.pinnedDoors) {
+                        if (SecurityDoors::IsGroup(pinnedType) || PolusDecon::IsGroup(pinnedType)) continue; // host-only group after host migration
                         State.rpcQueue.push(new RpcCloseDoorsOfType(pinnedType, false));
                     }
 

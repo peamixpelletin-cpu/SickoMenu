@@ -2,6 +2,8 @@
 #include "_rpc.h"
 #include "game.h"
 #include "state.hpp"
+#include "security_doors.h"
+#include "polus_decon.h"
 
 using namespace std::string_view_literals;
 
@@ -14,7 +16,13 @@ RpcCloseDoorsOfType::RpcCloseDoorsOfType(SystemTypes__Enum selectedSystem, bool 
 void RpcCloseDoorsOfType::Process()
 {
 	if (State.PanicMode || !Game::pShipStatus || !*Game::pShipStatus) return;
-	app::ShipStatus_RpcCloseDoorsOfType(*Game::pShipStatus, this->selectedSystem, NULL);
+    if (SecurityDoors::IsGroup(selectedSystem)) {
+        if (!SecurityDoors::SetOpen(false)) return;
+    }
+    else if (PolusDecon::IsGroup(selectedSystem)) {
+        if (!PolusDecon::SetOpen(selectedSystem, false)) return;
+    }
+    else app::ShipStatus_RpcCloseDoorsOfType(*Game::pShipStatus, this->selectedSystem, NULL);
     if (this->pinDoor && std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), selectedSystem) == State.pinnedDoors.end()) {
         State.softPinnedDoors.erase(std::remove(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), selectedSystem), State.softPinnedDoors.end());
         State.pinnedDoors.push_back(selectedSystem);
@@ -29,11 +37,20 @@ RpcOpenDoorsOfType::RpcOpenDoorsOfType(SystemTypes__Enum selectedSystem)
 void RpcOpenDoorsOfType::Process()
 {
     if (State.PanicMode || !Game::pShipStatus || !*Game::pShipStatus || !(*Game::pShipStatus)->fields.AllDoors) return;
+    if (SecurityDoors::IsGroup(selectedSystem)) {
+        SecurityDoors::SetOpen(true);
+        return;
+    }
+    if (PolusDecon::IsGroup(selectedSystem)) {
+        PolusDecon::SetOpen(selectedSystem, true);
+        return;
+    }
     if (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), selectedSystem) != State.pinnedDoors.end()) return;
 	for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors))
 	{
 		if (door && door->klass && door->fields.Room == selectedSystem)
 		{
+            if (SecurityDoors::IsHardPinnedKitchen(door)) continue;
 			app::ShipStatus_RpcUpdateSystem(*Game::pShipStatus, SystemTypes__Enum::Doors, (uint8_t)(door->fields.Id | 64), NULL);
 			if ("PlainDoor"sv == door->klass->name || (door->klass->parent && "PlainDoor"sv == door->klass->parent->name))
                 app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), true, {});

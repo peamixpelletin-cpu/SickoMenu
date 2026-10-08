@@ -1,6 +1,7 @@
 #include "pch-il2cpp.h"
 #include "_hooks.h"
 #include "state.hpp"
+#include "security_doors.h"
 #include <iostream>
 
 using namespace std::string_view_literals;
@@ -27,6 +28,11 @@ static void CloseDoorLocally(OpenableDoor* door) {
 static bool OpenDoor(OpenableDoor* door) {
     if (door == nullptr || door->klass == nullptr)
         return false;
+
+    if (SecurityDoors::IsHardPinnedKitchen(door)) {
+        SecurityDoors::CloseKitchen();
+        return true;
+    }
 
     if (IsHardPinnedDoor(door)) {
         // Auto-open minigames call app::SetDoorway directly and used to bypass

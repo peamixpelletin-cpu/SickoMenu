@@ -1,7 +1,7 @@
 #pragma once
 #include "pch-il2cpp.h"
 
-namespace SecurityDoors {
+namespace KitchenEast {
     bool IsGroup(app::SystemTypes__Enum room);
     bool IsKitchenDoor(app::OpenableDoor* door);
     bool IsHardPinnedKitchen(app::OpenableDoor* door);

@@ -30,8 +30,8 @@ static bool OpenDoor(OpenableDoor* door) {
     if (door == nullptr || door->klass == nullptr)
         return false;
 
-    if (SecurityDoors::IsHardPinnedKitchen(door)) {
-        SecurityDoors::CloseKitchen();
+    if (KitchenEast::IsHardPinnedKitchen(door)) {
+        KitchenEast::CloseKitchen();
         return true;
     }
 

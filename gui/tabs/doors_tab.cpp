@@ -6,6 +6,8 @@
 #include "state.hpp"
 #include "security_doors.h"
 #include "polus_decon.h"
+#include "electrical_maze.h"
+#include <cmath>
 #include "utility.h"
 #include "gui-helpers.hpp"
 
@@ -13,13 +15,89 @@ using namespace std::string_view_literals;
 
 namespace DoorsTab {
     static const char* GetDoorLabel(SystemTypes__Enum room) {
-        if (SecurityDoors::IsGroup(room)) return "Security";
+        if (KitchenEast::IsGroup(room)) return "KitchenEast";
         if (PolusDecon::IsGroup(room)) return PolusDecon::Label(room);
         return TranslateSystemTypes(room);
     }
 
+    static void RenderElectrical() {
+        if (!ImGui::CollapsingHeader("Electrical door map", ImGuiTreeNodeFlags_DefaultOpen)) return;
+        auto maze = ElectricalMaze::Read();
+        if (!maze.ready) {
+            ImGui::TextWrapped("Electrical doors unavailable. Enter an Airship game to see the map.");
+            return;
+        }
+        if (!maze.host) {
+            bool experimental = maze.experimental;
+            if (ImGui::Checkbox("Experimental non-host", &experimental)) {
+                ElectricalMaze::EnableExperimental(experimental);
+                maze.experimental = experimental;
+            }
+            ImGui::TextWrapped("Unverified: the server may reject this or disconnect you. Dots show local state; another player must confirm visibility.");
+        }
+        else ImGui::TextWrapped("Click a door to open or close it for the lobby.");
+        ImGui::TextUnformatted("Green: open   Red: closed");
+        const float width = ImGui::GetContentRegionAvail().x;
+        const float height = width * 0.82f;
+        const ImVec2 origin = ImGui::GetCursorScreenPos();
+        auto draw = ImGui::GetWindowDrawList();
+        float minX = maze.doors[0].x, maxX = minX, minY = maze.doors[0].y, maxY = minY;
+        for (const auto& door : maze.doors) {
+            if (!std::isfinite(door.x) || !std::isfinite(door.y)) return;
+            minX = (std::min)(minX, door.x); maxX = (std::max)(maxX, door.x);
+            minY = (std::min)(minY, door.y); maxY = (std::max)(maxY, door.y);
+        }
+        minX -= 1.0f; maxX += 2.8f; minY -= 2.0f; maxY += 2.3f;
+        const auto point = [&](float x, float y) {
+            return ImVec2(origin.x + (x - minX) / (maxX - minX) * width,
+                origin.y + (maxY - y) / (maxY - minY) * height);
+        };
+        draw->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + height), IM_COL32(23, 28, 35, 255), 5.f);
+        // Schematic walls use the verified stock door ordering; dots themselves
+        // use live world positions, so the control always follows the real door.
+        const float left = maze.doors[10].x, midLeft = maze.doors[5].x, midRight = maze.doors[6].x;
+        const float right = 2.f * maze.doors[0].x - midRight;
+        const float top = maze.doors[7].y + 1.7f, upper = maze.doors[2].y;
+        const float lower = maze.doors[0].y, bottom = maze.doors[9].y - 1.7f;
+        const auto wall = [&](float x1, float y1, float x2, float y2) {
+            draw->AddLine(point(x1, y1), point(x2, y2), IM_COL32(125, 137, 154, 255), 2.f * State.dpiScale);
+        };
+        wall(left, top, right, top); wall(left, top, left, lower);
+        wall(right, top, right, bottom); wall(midLeft, bottom, right, bottom);
+        wall(left, lower, right, lower); wall(left, upper, right, upper);
+        wall(midLeft, top, midLeft, bottom); wall(midRight, top, midRight, bottom);
+        const char* names[] = { "Bottom right / north", "Center / south", "Top right / south",
+            "Top center / south", "Top left / south", "Center left / east", "Center right / west",
+            "Top right / west", "Top left / east", "Bottom right / west", "Security exit / upper", "Security exit / lower" };
+        const float radius = 8.f * State.dpiScale;
+        for (unsigned i = 0; i < ElectricalMaze::DoorCount; ++i) {
+            const auto& door = maze.doors[i];
+            const auto p = point(door.x, door.y);
+            ImGui::SetCursorScreenPos(ImVec2(p.x - radius, p.y - radius));
+            ImGui::PushID(static_cast<int>(i));
+            if (ImGui::InvisibleButton("electrical-door", ImVec2(radius * 2, radius * 2)) && (maze.host || maze.experimental))
+                ElectricalMaze::Queue(i, !door.open, maze.generation);
+            const bool hovered = ImGui::IsItemHovered();
+            draw->AddCircleFilled(p, radius, door.open ? IM_COL32(42, 193, 110, 255) : IM_COL32(233, 75, 83, 255));
+            draw->AddCircle(p, radius, hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(15, 18, 24, 255), 0, 2.f);
+            if (hovered) {
+                ImGui::BeginTooltip();
+                ImGui::Text("Door %u - %s", i + 1, names[i]);
+                ImGui::TextUnformatted(door.open ? "Open" : "Closed");
+                if (!maze.host && !maze.experimental) ImGui::TextUnformatted("Host control, or enable the experimental attempt.");
+                ImGui::EndTooltip();
+            }
+            ImGui::PopID();
+        }
+        ImGui::SetCursorScreenPos(ImVec2(origin.x, origin.y + height));
+        ImGui::Dummy(ImVec2(width, 5.f * State.dpiScale));
+        ImGui::TextWrapped("Upper and lower west exits lead toward Security. KitchenEast is separate.");
+        if (!maze.status.empty()) ImGui::TextWrapped("%s", maze.status.c_str());
+        ImGui::Separator();
+    }
+
     static void Unpin(SystemTypes__Enum room) {
-        if (SecurityDoors::IsGroup(room)) SecurityDoors::Reset();
+        if (KitchenEast::IsGroup(room)) KitchenEast::Reset();
         if (PolusDecon::IsGroup(room)) PolusDecon::Reset(room);
         State.pinnedDoors.erase(std::remove(State.pinnedDoors.begin(), State.pinnedDoors.end(), room), State.pinnedDoors.end());
         State.softPinnedDoors.erase(std::remove(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), room), State.softPinnedDoors.end());
@@ -28,7 +106,7 @@ namespace DoorsTab {
     }
 
     static void Pin(SystemTypes__Enum room, bool soft) {
-        if (SecurityDoors::IsGroup(room) && !SecurityDoors::CanControl(true)) return;
+        if (KitchenEast::IsGroup(room) && !KitchenEast::CanControl(true)) return;
         if (PolusDecon::IsGroup(room) && !PolusDecon::CanControl(room, true)) return;
         Unpin(room);
         (soft ? State.softPinnedDoors : State.pinnedDoors).push_back(room);
@@ -44,8 +122,8 @@ namespace DoorsTab {
 			if (shouldEndListBox) {
 				for (auto systemType : State.mapDoors) {
 					bool isOpen = false;
-					if (SecurityDoors::IsGroup(systemType)) {
-                        SecurityDoors::ReadState(isOpen);
+					if (KitchenEast::IsGroup(systemType)) {
+                        KitchenEast::ReadState(isOpen);
                     }
                     else if (PolusDecon::IsGroup(systemType)) {
                         PolusDecon::ReadState(systemType, isOpen);
@@ -109,6 +187,8 @@ namespace DoorsTab {
 			ImGui::SameLine();
 			ImGui::BeginChild("doors#options", ImVec2(300, 0) * State.dpiScale, false, ImGuiWindowFlags_NoBackground);
 
+			if (State.mapType == Settings::MapType::Airship) RenderElectrical();
+
 			if (IsHost() && State.DisableSabotages) {
 				ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Sabotages have been disabled.");
 				ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Nothing can be sabotaged.");
@@ -132,7 +212,6 @@ namespace DoorsTab {
 				{
 					for (auto door : State.mapDoors)
 					{
-						if (SecurityDoors::IsGroup(door)) continue;
 						State.rpcQueue.push(new RpcOpenDoorsOfType(door));
 					}
 				}
@@ -152,7 +231,7 @@ namespace DoorsTab {
             }
             if (supportsSoftPin) ImGui::TextWrapped("Soft pins close doors 1.5 seconds after opening. Orange: soft pin. Red: hard pin.");
             if (AnimatedButton("Unpin All Doors")) {
-                SecurityDoors::Reset();
+                KitchenEast::Reset();
                 PolusDecon::Reset();
                 State.pinnedDoors.clear();
                 State.softPinnedDoors.clear();
@@ -165,10 +244,10 @@ namespace DoorsTab {
                 ImGui::TextWrapped("Decontamination Upper / Lower: host only. Open opens BOTH doors of the selected chamber. Close closes both. Each chamber has independent pins.");
             }
             if (State.mapType == Settings::MapType::Airship) {
-                ImGui::TextWrapped("Security: Kitchen hallway door and both Electrical exits. Host only. Select Security and Open Door to open all three; Open All leaves Electrical unchanged.");
+                ImGui::TextWrapped("KitchenEast: only the east Kitchen hallway door. Host only. Electrical doors are controlled separately on the map.");
                 bool anyOpen = false;
-                if (!SecurityDoors::ReadState(anyOpen))
-                    ImGui::TextWrapped("Security controls unavailable for this map layout.");
+                if (!KitchenEast::ReadState(anyOpen))
+                    ImGui::TextWrapped("KitchenEast is unavailable for this map layout.");
             }
 			if (!State.selectedDoors.empty()) {
 				if (AnimatedButton(State.selectedDoors.size() == 1 ? "Close Door" : "Close Doors")) {

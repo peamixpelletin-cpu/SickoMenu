@@ -1,21 +1,23 @@
 #pragma once
 #include <cstdint>
+#include <array>
 
 namespace PolusDecon {
-    constexpr bool IsOpenState(uint32_t state) { return (state & (1u | 4u)) != 0; }
-    // Native Enter states open the requested entry side, then run the normal cycle.
-    constexpr uint32_t EntryState(bool upperSide) { return upperSide ? 1u : 9u; }
+    constexpr bool AnyOpen(const std::array<bool, 2>& doors) { return doors[0] || doors[1]; }
+    template<typename Door, typename Setter>
+    void SetPair(const std::array<Door*, 2>& doors, bool open, Setter set) {
+        for (auto door : doors) set(door, open);
+    }
 
     class PinTimer {
         int64_t openedAt = -1;
-        uint32_t previousState = 0;
     public:
-        void Reset() { openedAt = -1; previousState = 0; }
-        bool Update(bool hard, bool soft, uint32_t state, int64_t now) {
-            if (hard) { Reset(); return state != 0; }
-            if (!soft || !IsOpenState(state)) { Reset(); return false; }
-            if (openedAt < 0 || previousState != state) openedAt = now;
-            previousState = state;
+        void Reset() { openedAt = -1; }
+        bool Update(bool hard, bool soft, uint32_t cycle, const std::array<bool, 2>& doors, int64_t now) {
+            if (hard) { Reset(); return cycle != 0 || AnyOpen(doors); }
+            // A manual pair-open intentionally leaves the native cycle Idle.
+            if (!soft || !AnyOpen(doors)) { Reset(); return false; }
+            if (openedAt < 0) openedAt = now;
             return now - openedAt >= 1500;
         }
     };

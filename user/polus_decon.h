@@ -9,6 +9,9 @@ namespace PolusDecon {
     bool CanControl(app::SystemTypes__Enum room, bool notify = false);
     bool SetOpen(app::SystemTypes__Enum room, bool open);
     bool IsHardPinned(app::SystemTypes__Enum room);
+    bool RoomForDoor(app::OpenableDoor* door, app::SystemTypes__Enum& room);
+    bool IsPhysicalDoor(app::OpenableDoor* door);
+    bool IsHardPinnedDoor(app::OpenableDoor* door);
     void UpdatePins();
     void Reset(app::SystemTypes__Enum room);
     void Reset();

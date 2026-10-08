@@ -7,7 +7,7 @@ Base: supplied official v5.1.1 snapshot, with additions from supplied fanmade v5
 - Soft pin on Polus/Airship: closes doors 1.5 seconds after opening. Works with official multiple-room selection and all doors.
 - Hard pin fixes: suppress open updates, prevent auto-open minigames bypassing pins, and re-close pinned doors. Non-host pulse requests wait for the queue to drain.
 - Pin modes are mutually exclusive per room. Unpin removes both. Decontamination is included in the door list, open/close commands, and pin controls; panic mode suspends enforcement.
-- Polus decontamination entries now come from the two DeconSystem objects, which are absent from AllDoors. Upper and Lower labels use the chambers' actual door positions. Each chamber supports selection, host-only close/open, hard pin, and a separate 1.5-second soft-pin timer. Close cancels the cycle and closes both sides; Open starts the normal cycle from the entry side nearest the host. Native state/timer serialization synchronizes clients. All-door actions include both chambers once the door menu is opened.
+- Polus Upper and Lower decontamination entries use each DeconSystem's actual door references. The installed map has four PlainDoors (IDs 12-15) in AllDoors, all sharing Room=Decontamination; grouping by that Room merges both chambers. Open and Close now affect BOTH physical doors of only the selected chamber. The host cancels the cycle and synchronizes its idle state before the physical door states in one reliable update, using native serializers. Status and soft pins read the actual doors, including when the cycle is idle. Hard-pin guards and auto-open handling resolve chamber membership by reference, so Lower pins cannot lock Upper. These controls remain host-only.
 - Airship has a host-only Security door group: Kitchen hallway door 9 plus the two Electrical LeftExits. Close and hard pin block those three doors without closing the other Kitchen doors. Soft pin gives each opened door its own 1.5-second window. Unpin leaves the current door states unchanged.
 - Select Security and use Open Door (or Open Room Door while in Security) to open all three; hard pins must first be removed. Open All and Kitchen opens leave the Electrical exits unchanged. Kitchen opens and card-swipe auto-open cannot bypass a Security hard pin.
 - Security uses the game's LeftExits references and marks the normal and Electrical systems dirty for host replication. No added map objects or camera-system RPCs are used. If the expected door objects or metadata are unavailable, the controls report that instead of modifying another door.
@@ -29,7 +29,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 Output: artifacts/x64/SickoMenu-merged-x64.zip, containing SickoMenu.dll, version.dll, license, notes, and SHA-256 hashes. Use either injection or the version proxy as described in README. GitHub Actions builds the same package on main pushes, pull requests, and manual dispatch; published releases receive the package on their own tag.
 
-The build first compiles and runs 20 Security pin timer scenarios and 22 Polus decontamination scenarios covering native entry/exit states, independent chamber timing, hard pins during a cycle, unpin, and reset.
+The build first compiles and runs 20 Security pin timer scenarios and Polus regression scenarios covering idle-cycle open doors, either physical door opening, separate chamber timers, hard-pin cancellation of pending cycles, unpin, and reset.
 
 ## Verification status
 

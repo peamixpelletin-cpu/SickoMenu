@@ -75,7 +75,7 @@ static bool ShouldSuppressHardPinnedDoorOpen(
         return false; // Already a close/no-open update; let vanilla handle it.
 
     OpenableDoor* door = FindDoorFromDoorsSystemAmount(shipStatus, amount);
-    if (door == nullptr || !IsHardPinnedDoorRoom(door->fields.Room))
+    if (door == nullptr || PolusDecon::IsPhysicalDoor(door) || !IsHardPinnedDoorRoom(door->fields.Room))
         return false;
 
     if (doorOut != nullptr)
@@ -287,6 +287,14 @@ void dShipStatus_UpdateSystem(ShipStatus* __this, SystemTypes__Enum systemType, 
     if (State.ShowHookLogs) Log.HookDebug("Hook dShipStatus_UpdateSystem executed", false);
     // Reject activation before vanilla changes a hard-pinned chamber's state.
     if (PolusDecon::IsHardPinned(systemType)) return;
+    if (systemType == SystemTypes__Enum::Doors && (amount & 64) != 0) {
+        SystemTypes__Enum chamber{};
+        if (PolusDecon::RoomForDoor(FindDoorFromDoorsSystemAmount(__this, amount), chamber) &&
+            PolusDecon::IsHardPinned(chamber)) {
+            PolusDecon::SetOpen(chamber, false);
+            return;
+        }
+    }
     // Security owns only Kitchen door 9. Reject its open before vanilla applies
     // it, and publish just that door's state instead of closing the whole Kitchen.
     if (systemType == SystemTypes__Enum::Doors && (amount & 64) != 0 &&

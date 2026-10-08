@@ -9,7 +9,7 @@
 #include <chrono>
 #include <cstring>
 
-namespace SecurityDoors {
+namespace KitchenEast {
     namespace {
         PinTimer timer;
 
@@ -27,48 +27,15 @@ namespace SecurityDoors {
             return object && object->klass ? il2cpp_class_get_field_from_name(object->klass, name) : nullptr;
         }
 
-        Il2CppObject* Reference(Il2CppObject* object, const char* name) {
-            auto field = Field(object, name);
-            Il2CppObject* value = nullptr;
-            if (field) il2cpp_field_get_value(object, field, &value);
-            return value;
-        }
-
         struct Group {
             PlainDoor* kitchen = nullptr;
             Il2CppObject* normalSystem = nullptr;
-            Il2CppObject* electricalSystem = nullptr;
             FieldInfo* normalDirty = nullptr;
-            FieldInfo* electricalDirty = nullptr;
-            std::array<Il2CppObject*, 2> exits{};
-            std::array<FieldInfo*, 2> exitOpen{};
-            std::array<const MethodInfo*, 2> exitSetOpen{};
 
-            std::array<bool, 3> State() const {
-                std::array<bool, 3> result{ kitchen->fields.Open, false, false };
-                for (unsigned i = 0; i < exits.size(); ++i)
-                    il2cpp_field_get_value(exits[i], exitOpen[i], &result[i + 1]);
-                return result;
-            }
-
-            bool Apply(unsigned mask, bool open) const {
-                bool success = true;
+            void Apply(bool open) const {
+                app::PlainDoor_SetDoorway(kitchen, open, nullptr);
                 bool dirty = true;
-                if (mask & KitchenMask) {
-                    app::PlainDoor_SetDoorway(kitchen, open, nullptr);
-                    il2cpp_field_set_value(normalSystem, normalDirty, &dirty);
-                }
-                for (unsigned i = 0; i < exits.size(); ++i) {
-                    if (!(mask & (1u << (i + 1)))) continue;
-                    void* args[] = { &open };
-                    Il2CppException* exception = nullptr;
-                    il2cpp_runtime_invoke(exitSetOpen[i], exits[i], args, &exception);
-                    if (exception) success = false;
-                    // The host's ordinary ShipStatus serialization sends the door
-                    // states. Do not send StaticDoor indices as normal Doors RPC IDs.
-                    il2cpp_field_set_value(electricalSystem, electricalDirty, &dirty);
-                }
-                return success;
+                il2cpp_field_set_value(normalSystem, normalDirty, &dirty);
             }
         };
 
@@ -85,35 +52,18 @@ namespace SecurityDoors {
             }
             il2cpp::Dictionary systems(ship->fields.Systems);
             group.normalSystem = reinterpret_cast<Il2CppObject*>(systems[SystemTypes__Enum::Doors]);
-            group.electricalSystem = reinterpret_cast<Il2CppObject*>(systems[SystemTypes__Enum::Decontamination]);
-            if (!group.kitchen || !group.normalSystem || !group.electricalSystem ||
-                !ClassMatches(group.normalSystem->klass, "DoorsSystemType") ||
-                !ClassMatches(group.electricalSystem->klass, "ElectricalDoors")) return false;
+            if (!group.kitchen || !group.normalSystem ||
+                !ClassMatches(group.normalSystem->klass, "DoorsSystemType")) return false;
             group.normalDirty = Field(group.normalSystem, "<IsDirty>k__BackingField");
-            group.electricalDirty = Field(group.electricalSystem, "<IsDirty>k__BackingField");
-            if (!group.normalDirty || !group.electricalDirty) return false;
-
-            // Resolve the game's actual LeftExits references rather than relying on
-            // the published 10/11 indices or assuming StaticDoor inherits PlainDoor.
-            auto leftExits = Reference(group.electricalSystem, "LeftExits");
-            auto exits = reinterpret_cast<Il2CppArraySize*>(Reference(leftExits, "Doors"));
-            if (!exits || exits->max_length != 2) return false;
-            for (unsigned i = 0; i < group.exits.size(); ++i) {
-                auto exit = reinterpret_cast<Il2CppObject*>(exits->vector[i]);
-                if (!exit || !ClassMatches(exit->klass, "StaticDoor")) return false;
-                group.exits[i] = exit;
-                group.exitOpen[i] = Field(exit, "<IsOpen>k__BackingField");
-                group.exitSetOpen[i] = il2cpp_class_get_method_from_name(exit->klass, "SetOpen", 1);
-                if (!group.exitOpen[i] || !group.exitSetOpen[i]) return false;
-            }
-            return group.exits[0] != group.exits[1];
+            return group.normalDirty != nullptr;
         }
 
         void Unavailable() {
-            Toasts::AddToast("Security doors", "Security controls are unavailable for this Airship layout.");
+            Toasts::AddToast("KitchenEast", "KitchenEast controls are unavailable for this Airship layout.");
         }
     }
 
+    // Security is a UI-only selection key; the actual target is Kitchen door 9.
     bool IsGroup(SystemTypes__Enum room) {
         return State.mapType == Settings::MapType::Airship && room == SystemTypes__Enum::Security;
     }
@@ -131,15 +81,14 @@ namespace SecurityDoors {
     bool ReadState(bool& anyOpen) {
         Group group;
         if (!Resolve(group)) return false;
-        auto open = group.State();
-        anyOpen = std::any_of(open.begin(), open.end(), [](bool value) { return value; });
+        anyOpen = group.kitchen->fields.Open;
         return true;
     }
 
     bool CanControl(bool notify) {
         if (State.PanicMode) return false;
         if (!IsHost()) {
-            if (notify) Toasts::AddToast("Security doors", "You must be the host to control Security doors.");
+            if (notify) Toasts::AddToast("KitchenEast", "You must be the host to control KitchenEast.");
             return false;
         }
         Group group;
@@ -152,15 +101,12 @@ namespace SecurityDoors {
         if (!CanControl(true)) return false;
         if (open && (Contains(State.pinnedDoors, SystemTypes__Enum::Security) ||
                      Contains(State.pinnedDoors, SystemTypes__Enum::Kitchen))) {
-            Toasts::AddToast("Security doors", "Unpin Security and Kitchen before opening Security.");
+            Toasts::AddToast("KitchenEast", "Unpin KitchenEast and Kitchen before opening KitchenEast.");
             return false;
         }
         Group group;
         if (!Resolve(group)) return false;
-        if (!group.Apply(AllMask, open)) {
-            Unavailable();
-            return false;
-        }
+        group.Apply(open);
         timer.Reset();
         return true;
     }
@@ -168,7 +114,7 @@ namespace SecurityDoors {
     void CloseKitchen() {
         if (State.PanicMode || !IsHost()) return;
         Group group;
-        if (Resolve(group)) group.Apply(KitchenMask, false);
+        if (Resolve(group)) group.Apply(false);
     }
 
     void UpdatePins() {
@@ -184,8 +130,8 @@ namespace SecurityDoors {
         if (!Resolve(group)) { timer.Reset(); return; }
         auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count();
-        const auto close = timer.Update(mode, group.State(), now);
-        if (close) group.Apply(close, false);
+        const auto close = timer.Update(mode, group.kitchen->fields.Open, now);
+        if (close) group.Apply(false);
     }
 
     void Reset() { timer.Reset(); }

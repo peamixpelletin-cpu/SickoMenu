@@ -621,6 +621,9 @@
   <ItemGroup>
     <ClCompile Include="user\security_doors.cpp"><Filter>user</Filter></ClCompile>
     <ClCompile Include="user\polus_decon.cpp"><Filter>user</Filter></ClCompile>
+    <ClCompile Include="user\electrical_maze.cpp"><Filter>user</Filter></ClCompile>
+    <ClInclude Include="user\electrical_maze.h"><Filter>user</Filter></ClInclude>
+    <ClInclude Include="user\electrical_maze_policy.h"><Filter>user</Filter></ClInclude>
     <ClInclude Include="user\security_doors.h"><Filter>user</Filter></ClInclude>
     <ClInclude Include="user\polus_decon.h"><Filter>user</Filter></ClInclude>
     <ClInclude Include="user\security_doors_policy.h"><Filter>user</Filter></ClInclude>

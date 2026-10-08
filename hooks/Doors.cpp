@@ -12,8 +12,8 @@ void dPlainDoor_SetDoorway(PlainDoor* __this, bool open, MethodInfo* method) {
         app::PlainDoor_SetDoorway(__this, open && !PolusDecon::IsHardPinnedDoor(physical), method);
         return;
     }
-    if (open && SecurityDoors::IsHardPinnedKitchen(reinterpret_cast<OpenableDoor*>(__this))) {
-        SecurityDoors::CloseKitchen();
+    if (open && KitchenEast::IsHardPinnedKitchen(reinterpret_cast<OpenableDoor*>(__this))) {
+        KitchenEast::CloseKitchen();
         return;
     }
 	if (!State.PanicMode && Game::pShipStatus && *Game::pShipStatus && open && (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), __this->fields._.Room) != State.pinnedDoors.end())) {

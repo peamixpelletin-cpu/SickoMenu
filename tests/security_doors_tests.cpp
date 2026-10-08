@@ -1,9 +1,10 @@
 #include "../user/security_doors_policy.h"
 #include "../user/polus_decon_policy.h"
+#include "../user/electrical_maze_policy.h"
 #include <cstdlib>
 #include <iostream>
 
-using namespace SecurityDoors;
+using namespace KitchenEast;
 
 static void Expect(unsigned actual, unsigned expected, const char* scenario) {
     if (actual != expected) {
@@ -14,33 +15,47 @@ static void Expect(unsigned actual, unsigned expected, const char* scenario) {
 
 int main() {
     PinTimer timer;
-    Expect(timer.Update(PinMode::Hard, { true, true, true }, 0), AllMask, "hard pin closes all three");
-    Expect(timer.Update(PinMode::Hard, { true, false, false }, 1), KitchenMask, "only reopened Kitchen door changes");
-    Expect(timer.Update(PinMode::Hard, { false, true, true }, 2), ElectricalMask, "Electrical exits close independently");
-    Expect(timer.Update(PinMode::Hard, { false, false, false }, 3), 0, "closed doors do not repeatedly transmit");
-
+    Expect(timer.Update(PinMode::Hard, true, 0), true, "hard pin closes KitchenEast");
+    Expect(timer.Update(PinMode::Hard, false, 1), false, "closed door does not retransmit");
+    Expect(timer.Update(PinMode::Soft, true, 0), false, "soft pin starts window");
+    Expect(timer.Update(PinMode::Soft, true, 1499), false, "soft pin permits 1499ms");
+    Expect(timer.Update(PinMode::Soft, true, 1500), true, "soft pin closes at 1500ms");
+    Expect(timer.Update(PinMode::Soft, false, 1501), false, "close clears window");
+    Expect(timer.Update(PinMode::Soft, true, 1600), false, "new opening gets fresh window");
+    Expect(timer.Update(PinMode::Soft, true, 3100), true, "new window expires");
+    Expect(timer.Update(PinMode::None, true, 4000), false, "unpin does not change door");
+    Expect(timer.Update(PinMode::Soft, true, 5000), false, "repin clears old time");
     timer.Reset();
-    Expect(timer.Update(PinMode::Soft, { true, true, true }, 0), 0, "soft pin starts open window");
-    Expect(timer.Update(PinMode::Soft, { true, true, true }, 1499), 0, "soft pin permits 1499ms");
-    Expect(timer.Update(PinMode::Soft, { true, true, true }, 1500), AllMask, "soft pin closes at 1500ms");
-    Expect(timer.Update(PinMode::Soft, { false, false, false }, 1501), 0, "successful close resets timers");
-    Expect(timer.Update(PinMode::Soft, { true, false, false }, 1600), 0, "a new opening gets a new window");
-    Expect(timer.Update(PinMode::Soft, { true, false, false }, 3100), KitchenMask, "new opening expires");
+    Expect(timer.Update(PinMode::Soft, true, 8000), false, "scene/panic reset clears time");
+    Expect(timer.Update(PinMode::Hard, true, 8001), true, "hard pin overrides soft window");
+    std::cout << "KitchenEast pin tests passed (12 scenarios).\n";
 
-    timer.Reset();
-    Expect(timer.Update(PinMode::Soft, { true, false, false }, 0), 0, "Kitchen opens first");
-    Expect(timer.Update(PinMode::Soft, { true, true, false }, 1000), 0, "upper exit opens later");
-    Expect(timer.Update(PinMode::Soft, { true, true, false }, 1500), KitchenMask, "upper exit retains its own window");
-    Expect(timer.Update(PinMode::Soft, { false, true, true }, 2000), 0, "lower exit opens last");
-    Expect(timer.Update(PinMode::Soft, { false, true, true }, 2500), 2, "only upper exit expires");
-    Expect(timer.Update(PinMode::Soft, { false, false, true }, 3500), 4, "lower exit expires separately");
-
-    Expect(timer.Update(PinMode::None, { true, true, true }, 4000), 0, "unpin never opens or closes doors");
-    Expect(timer.Update(PinMode::Soft, { true, true, true }, 5000), 0, "repin clears old timing");
-    timer.Reset();
-    Expect(timer.Update(PinMode::Soft, { true, true, true }, 6000), 0, "scene/panic reset clears timers");
-    Expect(timer.Update(PinMode::Hard, { true, true, true }, 6100), AllMask, "hard pin overrides a soft window");
-    std::cout << "Security door pin tests passed (20 scenarios).\n";
+    // Live door references are independent from room-based normal doors.
+    std::array<bool, 12> maze{}; maze.fill(true);
+    std::array<bool*, 12> refs{};
+    for (unsigned i = 0; i < refs.size(); ++i) refs[i] = &maze[i];
+    unsigned calls = 0;
+    const auto setMaze = [&](bool* door, bool open) { ++calls; *door = open; return true; };
+    const auto apply = [&](ElectricalMaze::Command command, bool host, bool experimental) {
+        return ElectricalMaze::ApplySelected(command, 7, host, experimental, refs, setMaze);
+    };
+    Expect(apply({10, false, 7}, true, false), true, "host can close upper west exit");
+    Expect(maze[10], false, "selected exit closes");
+    bool othersOpen = true;
+    for (unsigned i = 0; i < maze.size(); ++i) if (i != 10) othersOpen &= maze[i];
+    Expect(othersOpen, true, "other eleven maze doors stay unchanged");
+    Expect(calls, 1, "one command calls exactly one setter");
+    Expect(apply({11, false, 7}, false, false), false, "non-host disabled by default");
+    Expect(maze[11], true, "blocked command cannot change lower exit");
+    Expect(apply({11, false, 7}, false, true), true, "explicit experimental command allowed");
+    Expect(maze[11], false, "experimental command changes selected local door");
+    Expect(apply({11, true, 6}, true, true), false, "old scene generation rejected");
+    Expect(apply({12, false, 7}, true, true), false, "out-of-range index rejected");
+    Expect(apply({0, false, 7}, false, false), false, "losing host or disabling experiment blocks queued request");
+    Expect(calls, 2, "rejected commands never call setter");
+    Expect(apply({10, true, 7}, true, false), true, "host can reopen a single door");
+    Expect(maze[10] && !maze[11], true, "reopening upper does not reopen lower");
+    std::cout << "Electrical maze command tests passed (14 scenarios).\n";
     // The installed map has four PlainDoors with the same Room=18.
     // Selection must use the two explicit references, never all matching Rooms.
     struct Door { int room = 18; bool open = false; } d12, d13, d14, d15;

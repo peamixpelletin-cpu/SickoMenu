@@ -330,6 +330,7 @@
     <ClCompile Include="user\profiler.cpp" />
     <ClCompile Include="user\security_doors.cpp" />
     <ClCompile Include="user\polus_decon.cpp" />
+    <ClCompile Include="user\electrical_maze.cpp" />
     <ClCompile Include="user\resources.cpp" />
     <ClCompile Include="user\utility.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
@@ -576,6 +577,8 @@
     <ClInclude Include="user\utility.h" />
     <ClInclude Include="user\security_doors.h" />
     <ClInclude Include="user\polus_decon.h" />
+    <ClInclude Include="user\electrical_maze.h" />
+    <ClInclude Include="user\electrical_maze_policy.h" />
     <ClInclude Include="user\security_doors_policy.h" />
     <ClInclude Include="user\polus_decon_policy.h" />
     <ClInclude Include="framework\il2cpp-appdata.h" />

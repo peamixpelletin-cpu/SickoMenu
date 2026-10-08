@@ -28,7 +28,7 @@ void dAirshipStatus_OnEnable(AirshipStatus* __this, MethodInfo* method)
         State.softPinnedDoors.clear();
         State.doorOpenTimes.clear();
         State.pinnedDoorLastCheck.clear();
-        SecurityDoors::Reset();
+        KitchenEast::Reset();
 
 		il2cpp::Array allDoors = __this->fields._.AllDoors;
 

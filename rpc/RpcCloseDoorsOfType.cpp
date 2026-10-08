@@ -16,8 +16,8 @@ RpcCloseDoorsOfType::RpcCloseDoorsOfType(SystemTypes__Enum selectedSystem, bool 
 void RpcCloseDoorsOfType::Process()
 {
 	if (State.PanicMode || !Game::pShipStatus || !*Game::pShipStatus) return;
-    if (SecurityDoors::IsGroup(selectedSystem)) {
-        if (!SecurityDoors::SetOpen(false)) return;
+    if (KitchenEast::IsGroup(selectedSystem)) {
+        if (!KitchenEast::SetOpen(false)) return;
     }
     else if (PolusDecon::IsGroup(selectedSystem)) {
         if (!PolusDecon::SetOpen(selectedSystem, false)) return;
@@ -37,8 +37,8 @@ RpcOpenDoorsOfType::RpcOpenDoorsOfType(SystemTypes__Enum selectedSystem)
 void RpcOpenDoorsOfType::Process()
 {
     if (State.PanicMode || !Game::pShipStatus || !*Game::pShipStatus || !(*Game::pShipStatus)->fields.AllDoors) return;
-    if (SecurityDoors::IsGroup(selectedSystem)) {
-        SecurityDoors::SetOpen(true);
+    if (KitchenEast::IsGroup(selectedSystem)) {
+        KitchenEast::SetOpen(true);
         return;
     }
     if (PolusDecon::IsGroup(selectedSystem)) {
@@ -50,7 +50,7 @@ void RpcOpenDoorsOfType::Process()
 	{
 		if (door && door->klass && door->fields.Room == selectedSystem)
 		{
-            if (SecurityDoors::IsHardPinnedKitchen(door)) continue;
+            if (KitchenEast::IsHardPinnedKitchen(door)) continue;
 			app::ShipStatus_RpcUpdateSystem(*Game::pShipStatus, SystemTypes__Enum::Doors, (uint8_t)(door->fields.Id | 64), NULL);
 			if ("PlainDoor"sv == door->klass->name || (door->klass->parent && "PlainDoor"sv == door->klass->parent->name))
                 app::PlainDoor_SetDoorway(reinterpret_cast<PlainDoor*>(door), true, {});

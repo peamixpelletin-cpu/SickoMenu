@@ -295,11 +295,11 @@ void dShipStatus_UpdateSystem(ShipStatus* __this, SystemTypes__Enum systemType, 
             return;
         }
     }
-    // Security owns only Kitchen door 9. Reject its open before vanilla applies
+    // KitchenEast owns only Kitchen door 9. Reject its open before vanilla applies
     // it, and publish just that door's state instead of closing the whole Kitchen.
     if (systemType == SystemTypes__Enum::Doors && (amount & 64) != 0 &&
-        SecurityDoors::IsHardPinnedKitchen(FindDoorFromDoorsSystemAmount(__this, amount))) {
-        SecurityDoors::CloseKitchen();
+        KitchenEast::IsHardPinnedKitchen(FindDoorFromDoorsSystemAmount(__this, amount))) {
+        KitchenEast::CloseKitchen();
         return;
     }
     LOG_DEBUG(std::format("SystemType {} updated with amount {}", (std::string)TranslateSystemTypes(systemType), amount).c_str());

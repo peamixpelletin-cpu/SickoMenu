@@ -3,6 +3,7 @@
 #include "game.h"
 #include "state.hpp"
 #include "security_doors.h"
+#include "polus_decon.h"
 
 using namespace std::string_view_literals;
 
@@ -17,6 +18,9 @@ void RpcCloseDoorsOfType::Process()
 	if (State.PanicMode || !Game::pShipStatus || !*Game::pShipStatus) return;
     if (SecurityDoors::IsGroup(selectedSystem)) {
         if (!SecurityDoors::SetOpen(false)) return;
+    }
+    else if (PolusDecon::IsGroup(selectedSystem)) {
+        if (!PolusDecon::SetOpen(selectedSystem, false)) return;
     }
     else app::ShipStatus_RpcCloseDoorsOfType(*Game::pShipStatus, this->selectedSystem, NULL);
     if (this->pinDoor && std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), selectedSystem) == State.pinnedDoors.end()) {
@@ -35,6 +39,10 @@ void RpcOpenDoorsOfType::Process()
     if (State.PanicMode || !Game::pShipStatus || !*Game::pShipStatus || !(*Game::pShipStatus)->fields.AllDoors) return;
     if (SecurityDoors::IsGroup(selectedSystem)) {
         SecurityDoors::SetOpen(true);
+        return;
+    }
+    if (PolusDecon::IsGroup(selectedSystem)) {
+        PolusDecon::SetOpen(selectedSystem, true);
         return;
     }
     if (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), selectedSystem) != State.pinnedDoors.end()) return;

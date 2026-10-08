@@ -7,7 +7,7 @@ Base: supplied official v5.1.1 snapshot, with additions from supplied fanmade v5
 - Soft pin on Polus/Airship: closes doors 1.5 seconds after opening. Works with official multiple-room selection and all doors.
 - Hard pin fixes: suppress open updates, prevent auto-open minigames bypassing pins, and re-close pinned doors. Non-host pulse requests wait for the queue to drain.
 - Pin modes are mutually exclusive per room. Unpin removes both. Decontamination is included in the door list, open/close commands, and pin controls; panic mode suspends enforcement.
-- Polus decontamination chambers have separate Upper and Lower labels based on their world positions, with unique selection IDs. Individual/multiple-room and all-door actions include both chambers.
+- Polus decontamination entries now come from the two DeconSystem objects, which are absent from AllDoors. Upper and Lower labels use the chambers' actual door positions. Each chamber supports selection, host-only close/open, hard pin, and a separate 1.5-second soft-pin timer. Close cancels the cycle and closes both sides; Open starts the normal cycle from the entry side nearest the host. Native state/timer serialization synchronizes clients. All-door actions include both chambers once the door menu is opened.
 - Airship has a host-only Security door group: Kitchen hallway door 9 plus the two Electrical LeftExits. Close and hard pin block those three doors without closing the other Kitchen doors. Soft pin gives each opened door its own 1.5-second window. Unpin leaves the current door states unchanged.
 - Select Security and use Open Door (or Open Room Door while in Security) to open all three; hard pins must first be removed. Open All and Kitchen opens leave the Electrical exits unchanged. Kitchen opens and card-swipe auto-open cannot bypass a Security hard pin.
 - Security uses the game's LeftExits references and marks the normal and Electrical systems dirty for host replication. No added map objects or camera-system RPCs are used. If the expected door objects or metadata are unavailable, the controls report that instead of modifying another door.
@@ -29,7 +29,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 Output: artifacts/x64/SickoMenu-merged-x64.zip, containing SickoMenu.dll, version.dll, license, notes, and SHA-256 hashes. Use either injection or the version proxy as described in README. GitHub Actions builds the same package on main pushes, pull requests, and manual dispatch; published releases receive the package on their own tag.
 
-The build first compiles and runs the Security pin timer regression tests (20 scenarios covering hard pin, staggered soft-pin windows, repeated openings, unpin, and reset).
+The build first compiles and runs 20 Security pin timer scenarios and 22 Polus decontamination scenarios covering native entry/exit states, independent chamber timing, hard pins during a cycle, unpin, and reset.
 
 ## Verification status
 

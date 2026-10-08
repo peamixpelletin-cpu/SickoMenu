@@ -3,9 +3,15 @@
 #include "state.hpp"
 #include "_rpc.h"
 #include "security_doors.h"
+#include "polus_decon.h"
 
 void dPlainDoor_SetDoorway(PlainDoor* __this, bool open, MethodInfo* method) {
 	if (State.ShowHookLogs) Log.HookDebug("Hook dPlainDoor_SetDoorway executed", false);
+    auto physical = reinterpret_cast<OpenableDoor*>(__this);
+    if (PolusDecon::IsPhysicalDoor(physical)) {
+        app::PlainDoor_SetDoorway(__this, open && !PolusDecon::IsHardPinnedDoor(physical), method);
+        return;
+    }
     if (open && SecurityDoors::IsHardPinnedKitchen(reinterpret_cast<OpenableDoor*>(__this))) {
         SecurityDoors::CloseKitchen();
         return;

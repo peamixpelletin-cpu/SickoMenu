@@ -2,12 +2,13 @@
 #include "_hooks.h"
 #include "state.hpp"
 #include "security_doors.h"
+#include "polus_decon.h"
 #include <iostream>
 
 using namespace std::string_view_literals;
 
 static bool IsHardPinnedDoor(OpenableDoor* door) {
-    if (door == nullptr || State.PanicMode)
+    if (door == nullptr || State.PanicMode || PolusDecon::IsPhysicalDoor(door))
         return false;
 
     const bool isAirshipOrPolus = State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb;
@@ -34,6 +35,11 @@ static bool OpenDoor(OpenableDoor* door) {
         return true;
     }
 
+    SystemTypes__Enum chamber{};
+    if (PolusDecon::RoomForDoor(door, chamber) && PolusDecon::IsHardPinned(chamber)) {
+        PolusDecon::SetOpen(chamber, false);
+        return true;
+    }
     if (IsHardPinnedDoor(door)) {
         // Auto-open minigames call app::SetDoorway directly and used to bypass
         // dPlainDoor_SetDoorway/dMushroomWallDoor_SetDoorway. Treat hard-pinned

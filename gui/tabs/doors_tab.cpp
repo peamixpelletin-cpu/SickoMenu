@@ -162,7 +162,7 @@ namespace DoorsTab {
 
 			ImGui::NewLine();
             if (State.mapType == Settings::MapType::Pb) {
-                ImGui::TextWrapped("Decontamination Upper / Lower: separate chambers, host only. Open starts the normal cycle from the side nearest you. Close stops the cycle and closes both chamber doors.");
+                ImGui::TextWrapped("Decontamination Upper / Lower: host only. Open opens BOTH doors of the selected chamber. Close closes both. Each chamber has independent pins.");
             }
             if (State.mapType == Settings::MapType::Airship) {
                 ImGui::TextWrapped("Security: Kitchen hallway door and both Electrical exits. Host only. Select Security and Open Door to open all three; Open All leaves Electrical unchanged.");

@@ -31,7 +31,7 @@ static std::string strToLower(std::string str) {
 }
 
 static bool IsHardPinnedDoor(OpenableDoor* door) {
-    if (door == nullptr || State.PanicMode)
+    if (door == nullptr || State.PanicMode || PolusDecon::IsPhysicalDoor(door))
         return false;
 
     const bool isAirshipOrPolus = State.mapType == Settings::MapType::Airship || State.mapType == Settings::MapType::Pb;
@@ -53,6 +53,11 @@ static bool OpenDoor(OpenableDoor* door) {
     if (door == nullptr || door->klass == nullptr)
         return false;
 
+    SystemTypes__Enum chamber{};
+    if (PolusDecon::RoomForDoor(door, chamber) && PolusDecon::IsHardPinned(chamber)) {
+        PolusDecon::SetOpen(chamber, false);
+        return true;
+    }
     if (IsHardPinnedDoor(door)) {
         // Auto-open minigames call app::SetDoorway directly and used to bypass
         // dPlainDoor_SetDoorway/dMushroomWallDoor_SetDoorway. Treat hard-pinned
@@ -190,7 +195,7 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
 
         if (!State.softPinnedDoors.empty() && isAirshipOrPolus) {
             for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors)) {
-                if (!door || !door->klass) continue;
+                if (!door || !door->klass || PolusDecon::IsPhysicalDoor(door)) continue;
                 auto roomType = door->fields.Room;
                 uint8_t doorId = (uint8_t)door->fields.Id;
                 bool isSoftPinned = std::find(State.softPinnedDoors.begin(), State.softPinnedDoors.end(), roomType) != State.softPinnedDoors.end();
@@ -233,7 +238,7 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
 
                     if (isAirshipOrPolus) {
                         for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors)) {
-                            if (!door || !door->klass) continue;
+                            if (!door || !door->klass || PolusDecon::IsPhysicalDoor(door)) continue;
 
                             auto roomType = door->fields.Room;
                             if (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), roomType) == State.pinnedDoors.end())
@@ -252,7 +257,7 @@ void dInnerNetClient_Update(InnerNetClient* __this, MethodInfo* method) {
                 // observed open event.
                 if (isAirshipOrPolus) {
                     for (auto door : il2cpp::Array((*Game::pShipStatus)->fields.AllDoors)) {
-                        if (!door || !door->klass) continue;
+                        if (!door || !door->klass || PolusDecon::IsPhysicalDoor(door)) continue;
 
                         auto roomType = door->fields.Room;
                         if (std::find(State.pinnedDoors.begin(), State.pinnedDoors.end(), roomType) == State.pinnedDoors.end())

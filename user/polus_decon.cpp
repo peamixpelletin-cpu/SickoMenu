@@ -41,41 +41,103 @@ namespace PolusDecon {
             return true;
         }
         struct Chamber {
+            SystemTypes__Enum room{};
             Il2CppObject* system = nullptr;
+            Il2CppObject* doorSystem = nullptr;
             FieldInfo* state = nullptr;
             FieldInfo* time = nullptr;
             FieldInfo* dirty = nullptr;
-            FieldInfo* openTime = nullptr;
+            FieldInfo* doorsDirty = nullptr;
             const MethodInfo* updateDoors = nullptr;
+            const MethodInfo* serializeCycle = nullptr;
+            const MethodInfo* serializeDoors = nullptr;
+            std::array<PlainDoor*, 2> doors{};
             Vector3 upper{}, lower{};
             uint32_t StateValue() const {
                 uint32_t value = 0;
                 il2cpp_field_get_value(system, state, &value);
                 return value;
             }
-            bool Apply(uint32_t value, float duration) const {
+            std::array<bool, 2> DoorStates() const {
+                return { doors[0]->fields.Open, doors[1]->fields.Open };
+            }
+            bool Apply(bool open) const {
+                uint8_t value = 0;
+                float duration = 0.f;
                 il2cpp_field_set_value(system, state, &value);
                 il2cpp_field_set_value(system, time, &duration);
                 Il2CppException* exception = nullptr;
                 il2cpp_runtime_invoke(updateDoors, system, nullptr, &exception);
+                if (exception) return false;
+                SetPair(doors, open, [](PlainDoor* door, bool value) {
+                    app::PlainDoor_SetDoorway(door, value, nullptr);
+                });
                 bool changed = true;
-                // Publish the native state and timer, not regular-door RPC IDs.
+                il2cpp_field_set_value(doorSystem, doorsDirty, &changed);
+
+                // Cancel the chamber cycle BEFORE applying both physical door
+                // states on peers. Normal ShipStatus serialization visits Doors
+                // before DeconSystem and would otherwise close the pair again.
+                if (IsInMultiplayerGame()) {
+                    auto writer = app::MessageWriter_Get(SendOption__Enum::Reliable, nullptr);
+                    if (!writer) return false;
+                    app::MessageWriter_StartMessage(writer, 5, nullptr); // GameData
+                    app::MessageWriter_WriteInt32(writer, (*Game::pAmongUsClient)->fields._.GameId, nullptr);
+                    app::MessageWriter_StartMessage(writer, 1, nullptr); // ShipStatus data
+                    app::MessageWriter_WritePacked(writer, (*Game::pShipStatus)->fields._.NetId, nullptr);
+                    bool initial = false;
+                    void* args[] = { writer, &initial };
+                    app::MessageWriter_StartMessage(writer, static_cast<uint8_t>(room), nullptr);
+                    il2cpp_runtime_invoke(serializeCycle, system, args, &exception);
+                    app::MessageWriter_EndMessage(writer, nullptr);
+                    if (!exception) {
+                        app::MessageWriter_StartMessage(writer, static_cast<uint8_t>(SystemTypes__Enum::Doors), nullptr);
+                        il2cpp_runtime_invoke(serializeDoors, doorSystem, args, &exception);
+                        app::MessageWriter_EndMessage(writer, nullptr);
+                    }
+                    app::MessageWriter_EndMessage(writer, nullptr);
+                    app::MessageWriter_EndMessage(writer, nullptr);
+                    if (!exception) app::InnerNetClient_SendOrDisconnect(
+                        reinterpret_cast<InnerNetClient*>(*Game::pAmongUsClient), writer, nullptr);
+                    app::MessageWriter_Recycle(writer, nullptr);
+                    if (exception) return false;
+                }
+                // Do not let a later ordinary update re-send Idle after the pair.
+                changed = false;
                 il2cpp_field_set_value(system, dirty, &changed);
-                return exception == nullptr;
+                return true;
             }
         };
         bool Resolve(SystemTypes__Enum room, Chamber& chamber) {
+            chamber.room = room;
             chamber.system = System(room);
             if (!chamber.system) return false;
             auto klass = chamber.system->klass;
             chamber.state = il2cpp_class_get_field_from_name(klass, "<CurState>k__BackingField");
             chamber.time = il2cpp_class_get_field_from_name(klass, "timer");
             chamber.dirty = il2cpp_class_get_field_from_name(klass, "<IsDirty>k__BackingField");
-            chamber.openTime = il2cpp_class_get_field_from_name(klass, "DoorOpenTime");
             chamber.updateDoors = il2cpp_class_get_method_from_name(klass, "UpdateDoorsViaState", 0);
-            return chamber.state && chamber.time && chamber.dirty && chamber.openTime && chamber.updateDoors &&
-                Position(Reference(chamber.system, "UpperDoor"), chamber.upper) &&
-                Position(Reference(chamber.system, "LowerDoor"), chamber.lower);
+            chamber.serializeCycle = il2cpp_class_get_method_from_name(klass, "Serialize", 2);
+            auto ship = *Game::pShipStatus;
+            if (!ship->fields.AllDoors) return false;
+            il2cpp::Dictionary systems(ship->fields.Systems);
+            chamber.doorSystem = reinterpret_cast<Il2CppObject*>(systems[SystemTypes__Enum::Doors]);
+            if (!chamber.doorSystem || !chamber.doorSystem->klass ||
+                std::strcmp(chamber.doorSystem->klass->name, "DoorsSystemType") != 0) return false;
+            chamber.doorsDirty = il2cpp_class_get_field_from_name(chamber.doorSystem->klass, "<IsDirty>k__BackingField");
+            chamber.serializeDoors = il2cpp_class_get_method_from_name(chamber.doorSystem->klass, "Serialize", 2);
+            const std::array references{ Reference(chamber.system, "UpperDoor"), Reference(chamber.system, "LowerDoor") };
+            for (size_t i = 0; i < references.size(); ++i) {
+                for (auto door : il2cpp::Array(ship->fields.AllDoors)) {
+                    if (reinterpret_cast<Il2CppObject*>(door) == references[i] && door && door->klass &&
+                        std::strcmp(door->klass->name, "PlainDoor") == 0)
+                        chamber.doors[i] = reinterpret_cast<PlainDoor*>(door);
+                }
+            }
+            return chamber.state && chamber.time && chamber.dirty && chamber.doorsDirty && chamber.updateDoors &&
+                chamber.serializeCycle && chamber.serializeDoors && chamber.doors[0] && chamber.doors[1] &&
+                chamber.doors[0] != chamber.doors[1] &&
+                Position(references[0], chamber.upper) && Position(references[1], chamber.lower);
         }
         void Unavailable() {
             Toasts::AddToast("Decontamination", "Controls are unavailable for this Polus layout.");
@@ -87,8 +149,8 @@ namespace PolusDecon {
             std::find(rooms.begin(), rooms.end(), room) != rooms.end();
     }
     void RefreshEntries() {
-        // DeconSystem's SomeKindaDoor references are absent from ShipStatus.AllDoors.
-        // Resolve lazily, after the game's systems have finished initializing.
+        // All four Polus PlainDoors share Room=Decontamination. The two systems'
+        // references identify the separate pairs; Room alone cannot separate them.
         for (auto room : rooms)
             if (System(room) && !Contains(State.mapDoors, room)) State.mapDoors.push_back(room);
         std::sort(State.mapDoors.begin(), State.mapDoors.end());
@@ -111,7 +173,7 @@ namespace PolusDecon {
     bool ReadState(SystemTypes__Enum room, bool& anyOpen) {
         Chamber chamber;
         if (!Resolve(room, chamber)) return false;
-        anyOpen = IsOpenState(chamber.StateValue());
+        anyOpen = AnyOpen(chamber.DoorStates());
         return true;
     }
     bool CanControl(SystemTypes__Enum room, bool notify) {
@@ -120,6 +182,7 @@ namespace PolusDecon {
             if (notify) Toasts::AddToast("Decontamination", "You must be the host to control decontamination.");
             return false;
         }
+        if (IsInMultiplayerGame() && (!Game::pAmongUsClient || !*Game::pAmongUsClient)) return false;
         Chamber chamber;
         if (Resolve(room, chamber)) return true;
         if (notify) Unavailable();
@@ -128,24 +191,32 @@ namespace PolusDecon {
     bool IsHardPinned(SystemTypes__Enum room) {
         return !State.PanicMode && IsHost() && IsGroup(room) && Contains(State.pinnedDoors, room);
     }
+    bool RoomForDoor(OpenableDoor* door, SystemTypes__Enum& room) {
+        if (!door || State.mapType != Settings::MapType::Pb) return false;
+        for (auto candidate : rooms) {
+            auto system = System(candidate);
+            if (system && (Reference(system, "UpperDoor") == reinterpret_cast<Il2CppObject*>(door) ||
+                           Reference(system, "LowerDoor") == reinterpret_cast<Il2CppObject*>(door))) {
+                room = candidate;
+                return true;
+            }
+        }
+        return false;
+    }
+    bool IsPhysicalDoor(OpenableDoor* door) {
+        SystemTypes__Enum room{};
+        return RoomForDoor(door, room);
+    }
+    bool IsHardPinnedDoor(OpenableDoor* door) {
+        SystemTypes__Enum room{};
+        return RoomForDoor(door, room) && IsHardPinned(room);
+    }
     bool SetOpen(SystemTypes__Enum room, bool open) {
         if (!CanControl(room, true) || (open && IsHardPinned(room))) return false;
         Chamber chamber;
         if (!Resolve(room, chamber)) return false;
-        uint32_t value = 0;
-        float duration = 0.f;
-        if (open) {
-            if (!Game::pLocalPlayer || !*Game::pLocalPlayer) return false;
-            const auto position = GetTrueAdjustedPosition(*Game::pLocalPlayer);
-            auto distance = [&](Vector3 door) {
-                const float x = position.x - door.x, y = position.y - door.y;
-                return x * x + y * y;
-            };
-            value = EntryState(distance(chamber.upper) <= distance(chamber.lower));
-            il2cpp_field_get_value(chamber.system, chamber.openTime, &duration);
-        }
         Reset(room);
-        if (!chamber.Apply(value, duration)) { Unavailable(); return false; }
+        if (!chamber.Apply(open)) { Unavailable(); return false; }
         return true;
     }
     void UpdatePins() {
@@ -159,8 +230,8 @@ namespace PolusDecon {
             if (!hard && !soft) { timers[i].Reset(); continue; }
             Chamber chamber;
             if (!Resolve(rooms[i], chamber)) { timers[i].Reset(); continue; }
-            if (timers[i].Update(hard, soft, chamber.StateValue(), now)) {
-                chamber.Apply(0, 0.f);
+            if (timers[i].Update(hard, soft, chamber.StateValue(), chamber.DoorStates(), now)) {
+                chamber.Apply(false);
                 timers[i].Reset();
             }
         }

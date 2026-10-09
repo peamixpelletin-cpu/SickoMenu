@@ -3,6 +3,9 @@
 #include <array>
 
 namespace PolusDecon {
+    constexpr bool ClientHardPinDue(int64_t now, int64_t lastClose, bool queueEmpty) {
+        return queueEmpty && (lastClose < 0 || now - lastClose >= 50);
+    }
     struct ClientDoor { int id; bool open; bool selected; };
     struct ClientPlan {
         bool valid = false, closeRoom = false;

@@ -224,7 +224,7 @@ namespace PolusDecon {
         return false;
     }
     bool IsHardPinned(SystemTypes__Enum room) {
-        return !State.PanicMode && IsHost() && IsGroup(room) && Contains(State.pinnedDoors, room);
+        return !State.PanicMode && IsGroup(room) && Contains(State.pinnedDoors, room);
     }
     bool RoomForDoor(OpenableDoor* door, SystemTypes__Enum& room) {
         if (!door || State.mapType != Settings::MapType::Pb) return false;
@@ -265,12 +265,18 @@ namespace PolusDecon {
             if (!hard && !soft) { timers[i].Reset(); lastClientClose[i] = -1; continue; }
             Chamber chamber;
             if (!Resolve(rooms[i], chamber)) { timers[i].Reset(); continue; }
-            // A client cannot cancel the host's cycle. Act on observed open
-            // doors only, instead of continuously retrying against cycle state.
-            if (!IsHost() && lastClientClose[i] >= 0 && now - lastClientClose[i] < 500) continue;
+            // Match ordinary non-host hard pins: pulse every 50 ms even when
+            // the local door is already closed, and wait for the RPC queue.
+            if (!IsHost() && hard) {
+                if (ClientHardPinDue(now, lastClientClose[i], State.rpcQueue.empty())) {
+                    chamber.Apply(false);
+                    lastClientClose[i] = now;
+                }
+                timers[i].Reset();
+                continue;
+            }
             if (timers[i].Update(hard, soft, IsHost() ? chamber.StateValue() : 0, chamber.DoorStates(), now)) {
                 chamber.Apply(false);
-                if (!IsHost()) lastClientClose[i] = now;
                 timers[i].Reset();
             }
         }

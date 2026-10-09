@@ -28,7 +28,7 @@ namespace DoorsTab {
             return;
         }
         if (!maze.host) {
-            ImGui::TextWrapped("View only: Electrical control requires host. The previous non-host state-send attempt caused an official-server kick and has been removed.");
+            ImGui::TextUnformatted("View only (host controls doors).");
         }
         else ImGui::TextWrapped("Click a door to open or close it for the lobby.");
         ImGui::TextUnformatted("Green: open   Red: closed");
@@ -86,7 +86,6 @@ namespace DoorsTab {
         }
         ImGui::SetCursorScreenPos(ImVec2(origin.x, origin.y + height));
         ImGui::Dummy(ImVec2(width, 5.f * State.dpiScale));
-        ImGui::TextWrapped("Upper and lower west exits lead toward Security. KitchenEast is separate.");
         if (!maze.status.empty()) ImGui::TextWrapped("%s", maze.status.c_str());
         ImGui::Separator();
     }
@@ -224,7 +223,7 @@ namespace DoorsTab {
             if (supportsSoftPin && AnimatedButton("Soft Pin All Doors")) {
                 for (auto door : State.mapDoors) Pin(door, true);
             }
-            if (supportsSoftPin) ImGui::TextWrapped("Soft pins close doors 1.5 seconds after opening. Orange: soft pin. Red: hard pin.");
+            if (supportsSoftPin) ImGui::TextWrapped("Soft pin: 1.5 s. Orange = soft; red = hard.");
             if (AnimatedButton("Unpin All Doors")) {
                 KitchenEast::Reset();
                 PolusDecon::Reset();
@@ -236,10 +235,10 @@ namespace DoorsTab {
 
 			ImGui::NewLine();
             if (State.mapType == Settings::MapType::Pb) {
-                ImGui::TextWrapped("Decontamination Upper / Lower: Open targets BOTH doors of the selected chamber. Close and pins also work through normal door requests as non-host. A running decon cycle can override client requests. Non-host Close may briefly close the other chamber before restoring its open doors.");
+                ImGui::TextUnformatted("Decontamination: both doors per chamber.");
             }
             if (State.mapType == Settings::MapType::Airship) {
-                ImGui::TextWrapped("KitchenEast: only the east Kitchen hallway door. Host only. Electrical doors are controlled separately on the map.");
+                ImGui::TextUnformatted("KitchenEast: east Kitchen door (host).");
                 bool anyOpen = false;
                 if (!KitchenEast::ReadState(anyOpen))
                     ImGui::TextWrapped("KitchenEast is unavailable for this map layout.");

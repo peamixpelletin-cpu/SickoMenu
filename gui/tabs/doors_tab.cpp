@@ -28,12 +28,7 @@ namespace DoorsTab {
             return;
         }
         if (!maze.host) {
-            bool experimental = maze.experimental;
-            if (ImGui::Checkbox("Experimental non-host", &experimental)) {
-                ElectricalMaze::EnableExperimental(experimental);
-                maze.experimental = experimental;
-            }
-            ImGui::TextWrapped("Unverified: the server may reject this or disconnect you. Dots show local state; another player must confirm visibility.");
+            ImGui::TextUnformatted("View only (host controls doors).");
         }
         else ImGui::TextWrapped("Click a door to open or close it for the lobby.");
         ImGui::TextUnformatted("Green: open   Red: closed");
@@ -75,7 +70,7 @@ namespace DoorsTab {
             const auto p = point(door.x, door.y);
             ImGui::SetCursorScreenPos(ImVec2(p.x - radius, p.y - radius));
             ImGui::PushID(static_cast<int>(i));
-            if (ImGui::InvisibleButton("electrical-door", ImVec2(radius * 2, radius * 2)) && (maze.host || maze.experimental))
+            if (ImGui::InvisibleButton("electrical-door", ImVec2(radius * 2, radius * 2)) && maze.host)
                 ElectricalMaze::Queue(i, !door.open, maze.generation);
             const bool hovered = ImGui::IsItemHovered();
             draw->AddCircleFilled(p, radius, door.open ? IM_COL32(42, 193, 110, 255) : IM_COL32(233, 75, 83, 255));
@@ -84,14 +79,13 @@ namespace DoorsTab {
                 ImGui::BeginTooltip();
                 ImGui::Text("Door %u - %s", i + 1, names[i]);
                 ImGui::TextUnformatted(door.open ? "Open" : "Closed");
-                if (!maze.host && !maze.experimental) ImGui::TextUnformatted("Host control, or enable the experimental attempt.");
+                if (!maze.host) ImGui::TextUnformatted("The host controls this door.");
                 ImGui::EndTooltip();
             }
             ImGui::PopID();
         }
         ImGui::SetCursorScreenPos(ImVec2(origin.x, origin.y + height));
         ImGui::Dummy(ImVec2(width, 5.f * State.dpiScale));
-        ImGui::TextWrapped("Upper and lower west exits lead toward Security. KitchenEast is separate.");
         if (!maze.status.empty()) ImGui::TextWrapped("%s", maze.status.c_str());
         ImGui::Separator();
     }
@@ -229,7 +223,7 @@ namespace DoorsTab {
             if (supportsSoftPin && AnimatedButton("Soft Pin All Doors")) {
                 for (auto door : State.mapDoors) Pin(door, true);
             }
-            if (supportsSoftPin) ImGui::TextWrapped("Soft pins close doors 1.5 seconds after opening. Orange: soft pin. Red: hard pin.");
+            if (supportsSoftPin) ImGui::TextWrapped("Soft pin: 1.5 s. Orange = soft; red = hard.");
             if (AnimatedButton("Unpin All Doors")) {
                 KitchenEast::Reset();
                 PolusDecon::Reset();
@@ -241,10 +235,10 @@ namespace DoorsTab {
 
 			ImGui::NewLine();
             if (State.mapType == Settings::MapType::Pb) {
-                ImGui::TextWrapped("Decontamination Upper / Lower: host only. Open opens BOTH doors of the selected chamber. Close closes both. Each chamber has independent pins.");
+                ImGui::TextUnformatted("Decontamination: both doors per chamber.");
             }
             if (State.mapType == Settings::MapType::Airship) {
-                ImGui::TextWrapped("KitchenEast: only the east Kitchen hallway door. Host only. Electrical doors are controlled separately on the map.");
+                ImGui::TextUnformatted("KitchenEast: east Kitchen door (host).");
                 bool anyOpen = false;
                 if (!KitchenEast::ReadState(anyOpen))
                     ImGui::TextWrapped("KitchenEast is unavailable for this map layout.");

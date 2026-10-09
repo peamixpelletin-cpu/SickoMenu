@@ -18,7 +18,6 @@ namespace ElectricalMaze {
         struct Maze {
             Il2CppObject* system = nullptr;
             FieldInfo* dirty = nullptr;
-            const MethodInfo* serialize = nullptr;
             std::array<Il2CppObject*, DoorCount> doors{};
             std::array<FieldInfo*, DoorCount> openFields{};
             std::array<const MethodInfo*, DoorCount> setters{};
@@ -34,8 +33,7 @@ namespace ElectricalMaze {
                 if (field) il2cpp_field_get_value(system, field, &array);
                 if (!array || array->max_length != DoorCount) return false;
                 dirty = il2cpp_class_get_field_from_name(system->klass, "<IsDirty>k__BackingField");
-                serialize = il2cpp_class_get_method_from_name(system->klass, "Serialize", 2);
-                if (!dirty || !serialize) return false;
+                if (!dirty) return false;
                 for (unsigned i = 0; i < DoorCount; ++i) {
                     doors[i] = reinterpret_cast<Il2CppObject*>(array->vector[i]);
                     if (!doors[i] || !doors[i]->klass || std::strcmp(doors[i]->klass->name, "StaticDoor") != 0) return false;
@@ -63,32 +61,7 @@ namespace ElectricalMaze {
                 il2cpp_runtime_invoke(setters[i], doors[i], args, &exception);
                 return !exception;
             }
-            bool SendAttempt() const {
-                if (!IsInMultiplayerGame() || !Game::pAmongUsClient || !*Game::pAmongUsClient) return false;
-                auto writer = app::MessageWriter_Get(SendOption__Enum::Reliable, nullptr);
-                if (!writer) return false;
-                app::MessageWriter_StartMessage(writer, 5, nullptr);
-                app::MessageWriter_WriteInt32(writer, (*Game::pAmongUsClient)->fields._.GameId, nullptr);
-                app::MessageWriter_StartMessage(writer, 1, nullptr);
-                app::MessageWriter_WritePacked(writer, (*Game::pShipStatus)->fields._.NetId, nullptr);
-                app::MessageWriter_StartMessage(writer, static_cast<uint8_t>(SystemTypes__Enum::Decontamination), nullptr);
-                bool initial = false;
-                bool wasDirty = false;
-                il2cpp_field_get_value(system, dirty, &wasDirty);
-                void* args[] = { writer, &initial };
-                Il2CppException* exception = nullptr;
-                // Use this build's serializer: fixed vs packed mask encoding must
-                // not be guessed from an older client or a third-party server.
-                il2cpp_runtime_invoke(serialize, system, args, &exception);
-                il2cpp_field_set_value(system, dirty, &wasDirty);
-                app::MessageWriter_EndMessage(writer, nullptr);
-                app::MessageWriter_EndMessage(writer, nullptr);
-                app::MessageWriter_EndMessage(writer, nullptr);
-                if (!exception) app::InnerNetClient_SendOrDisconnect(
-                    reinterpret_cast<InnerNetClient*>(*Game::pAmongUsClient), writer, nullptr);
-                app::MessageWriter_Recycle(writer, nullptr);
-                return !exception;
-            }
+
         };
         void Clear() {
             const auto generation = snapshot.generation + 1;
@@ -99,16 +72,10 @@ namespace ElectricalMaze {
         }
     }
     Snapshot Read() { std::lock_guard lock(mutex); return snapshot; }
-    void EnableExperimental(bool enabled) {
-        std::lock_guard lock(mutex);
-        snapshot.experimental = enabled && snapshot.ready;
-        snapshot.status.clear();
-        commands.clear();
-    }
     void Queue(unsigned door, bool open, uint64_t generation) {
         std::lock_guard lock(mutex);
         Command command{ door, open, generation };
-        if (snapshot.ready && CanApply(command, snapshot.generation, DoorCount, snapshot.host, snapshot.experimental)
+        if (snapshot.ready && CanApply(command, snapshot.generation, DoorCount, snapshot.host)
             && commands.size() < 32) commands.push_back(command);
     }
     void Reset() { std::lock_guard lock(mutex); Clear(); }
@@ -127,23 +94,15 @@ namespace ElectricalMaze {
         if (!snapshot.ready) { commands.clear(); return; }
         snapshot.ready = maze.Capture();
         if (!snapshot.ready) { commands.clear(); return; }
-        // One explicit click produces one update; no non-host retry loop.
+        // Only host commands can mutate the maze or mark it for replication.
         if (!commands.empty()) {
             auto command = commands.front(); commands.pop_front();
-            const bool before = command.door < DoorCount ? snapshot.doors[command.door].open : false;
             const bool applied = ApplySelected(command, snapshot.generation, snapshot.host,
-                snapshot.experimental, maze.doors, [&](Il2CppObject*, bool open) { return maze.Set(command.door, open); });
+                maze.doors, [&](Il2CppObject*, bool open) { return maze.Set(command.door, open); });
             if (applied) {
-                if (snapshot.host) {
-                    bool dirty = true;
-                    il2cpp_field_set_value(maze.system, maze.dirty, &dirty);
-                    snapshot.status = "Host update queued.";
-                }
-                else if (maze.SendAttempt()) snapshot.status = "Attempt sent. Other players' state is unverified.";
-                else {
-                    maze.Set(command.door, before);
-                    snapshot.status = "Could not send; local door restored.";
-                }
+                bool dirty = true;
+                il2cpp_field_set_value(maze.system, maze.dirty, &dirty);
+                snapshot.status = "Host update queued.";
                 snapshot.ready = maze.Capture();
             }
         }

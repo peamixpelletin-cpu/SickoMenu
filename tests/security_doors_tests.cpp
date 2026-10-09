@@ -36,26 +36,65 @@ int main() {
     for (unsigned i = 0; i < refs.size(); ++i) refs[i] = &maze[i];
     unsigned calls = 0;
     const auto setMaze = [&](bool* door, bool open) { ++calls; *door = open; return true; };
-    const auto apply = [&](ElectricalMaze::Command command, bool host, bool experimental) {
-        return ElectricalMaze::ApplySelected(command, 7, host, experimental, refs, setMaze);
+    const auto apply = [&](ElectricalMaze::Command command, bool host) {
+        return ElectricalMaze::ApplySelected(command, 7, host, refs, setMaze);
     };
-    Expect(apply({10, false, 7}, true, false), true, "host can close upper west exit");
+    Expect(apply({10, false, 7}, true), true, "host can close upper west exit");
     Expect(maze[10], false, "selected exit closes");
     bool othersOpen = true;
     for (unsigned i = 0; i < maze.size(); ++i) if (i != 10) othersOpen &= maze[i];
     Expect(othersOpen, true, "other eleven maze doors stay unchanged");
     Expect(calls, 1, "one command calls exactly one setter");
-    Expect(apply({11, false, 7}, false, false), false, "non-host disabled by default");
+    Expect(apply({11, false, 7}, false), false, "non-host cannot initiate a maze update");
     Expect(maze[11], true, "blocked command cannot change lower exit");
-    Expect(apply({11, false, 7}, false, true), true, "explicit experimental command allowed");
-    Expect(maze[11], false, "experimental command changes selected local door");
-    Expect(apply({11, true, 6}, true, true), false, "old scene generation rejected");
-    Expect(apply({12, false, 7}, true, true), false, "out-of-range index rejected");
-    Expect(apply({0, false, 7}, false, false), false, "losing host or disabling experiment blocks queued request");
-    Expect(calls, 2, "rejected commands never call setter");
-    Expect(apply({10, true, 7}, true, false), true, "host can reopen a single door");
+    Expect(apply({11, true, 6}, true), false, "old scene generation rejected");
+    Expect(apply({12, false, 7}, true), false, "out-of-range index rejected");
+    Expect(calls, 1, "rejected commands never call setter");
+    Expect(apply({11, false, 7}, true), true, "host can close lower exit");
+    Expect(maze[11], false, "selected lower exit closes");
+    Expect(apply({10, true, 7}, true), true, "host can reopen a single door");
     Expect(maze[10] && !maze[11], true, "reopening upper does not reopen lower");
+    Expect(calls, 3, "only three approved host commands applied");
     std::cout << "Electrical maze command tests passed (14 scenarios).\n";
+
+    // Four Polus doors share a room, but requests must retain pair selection.
+    std::array<PolusDecon::ClientDoor, 4> physical{{ {12, false, true}, {13, false, true},
+        {14, true, false}, {15, false, false} }};
+    auto plan = PolusDecon::PlanClientRequest(true, physical);
+    Expect(plan.valid, true, "non-host open has valid physical pair");
+    Expect(plan.closeRoom, false, "open never sends a shared close");
+    Expect(plan.count, 2, "open requests BOTH selected IDs");
+    Expect(plan.openIds[0], 12, "first selected door ID");
+    Expect(plan.openIds[1], 13, "second selected door ID");
+    plan = PolusDecon::PlanClientRequest(false, physical);
+    Expect(plan.valid && plan.closeRoom, true, "close uses shared room RPC");
+    Expect(plan.count, 1, "close restores only previously open peer door");
+    Expect(plan.openIds[0], 14, "selected pair never gets restored by close");
+    physical[3].open = true;
+    plan = PolusDecon::PlanClientRequest(false, physical);
+    Expect(plan.count, 2, "close restores both peer doors when open");
+    Expect(plan.openIds[1], 15, "second peer door is restored");
+    physical[2].open = physical[3].open = false;
+    Expect(PolusDecon::PlanClientRequest(false, physical).count, 0, "closed peer chamber stays closed");
+    physical[0].selected = physical[1].selected = false;
+    physical[2].selected = physical[3].selected = true;
+    plan = PolusDecon::PlanClientRequest(true, physical);
+    Expect(plan.openIds[0] == 14 && plan.openIds[1] == 15, true, "Upper selection uses its own IDs");
+    physical[3].id = 32;
+    Expect(PolusDecon::PlanClientRequest(true, physical).valid, false, "invalid ID cannot wrap into another door");
+    physical[3].id = -1;
+    Expect(PolusDecon::PlanClientRequest(true, physical).valid, false, "negative ID rejected");
+    physical[3].id = 14;
+    Expect(PolusDecon::PlanClientRequest(true, physical).valid, false, "duplicate physical ID rejected");
+    physical[3].id = 15; physical[3].selected = false;
+    Expect(PolusDecon::PlanClientRequest(true, physical).valid, false, "missing second selected door rejected");
+    std::cout << "Non-host decontamination request tests passed (16 scenarios).\n";
+    Expect(PolusDecon::ClientHardPinDue(0, -1, true), true, "hard pin sends immediately");
+    Expect(PolusDecon::ClientHardPinDue(49, 0, true), false, "hard pin waits until 50ms");
+    Expect(PolusDecon::ClientHardPinDue(50, 0, true), true, "hard pin pulses at 50ms even if locally closed");
+    Expect(PolusDecon::ClientHardPinDue(100, 0, false), false, "hard pin waits for RPC queue to drain");
+    Expect(PolusDecon::ClientHardPinDue(101, 0, true), true, "hard pin resumes when queue drains");
+    std::cout << "Decontamination hard-pin cadence tests passed (5 scenarios).\n";
     // The installed map has four PlainDoors with the same Room=18.
     // Selection must use the two explicit references, never all matching Rooms.
     struct Door { int room = 18; bool open = false; } d12, d13, d14, d15;

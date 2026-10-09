@@ -15,6 +15,7 @@ namespace PolusDecon {
         constexpr std::array rooms{ SystemTypes__Enum::Decontamination,
             SystemTypes__Enum::Decontamination2, SystemTypes__Enum::Decontamination3 };
         std::array<PinTimer, 3> timers;
+        std::array<int64_t, 3> lastClientClose{ -1, -1, -1 };
 
         bool Contains(const std::vector<SystemTypes__Enum>& list, SystemTypes__Enum room) {
             return std::find(list.begin(), list.end(), room) != list.end();
@@ -61,7 +62,45 @@ namespace PolusDecon {
             std::array<bool, 2> DoorStates() const {
                 return { doors[0]->fields.Open, doors[1]->fields.Open };
             }
+            bool RequestClient(bool open) const {
+                if (!Game::pLocalPlayer || !*Game::pLocalPlayer) return false;
+                auto ship = *Game::pShipStatus;
+                const auto physicalRoom = doors[0]->fields._.Room;
+                if (doors[1]->fields._.Room != physicalRoom) return false;
+                std::vector<ClientDoor> physical;
+                std::array<PlainDoor*, 32> byId{};
+                unsigned index = 0;
+                for (auto door : il2cpp::Array(ship->fields.AllDoors)) {
+                    const auto currentIndex = index++;
+                    if (!door || door->fields.Room != physicalRoom) continue;
+                    if (!door->klass || std::strcmp(door->klass->name, "PlainDoor") != 0 ||
+                        door->fields.Id < 0 || door->fields.Id > 31 ||
+                        static_cast<unsigned>(door->fields.Id) != currentIndex) return false;
+                    auto plain = reinterpret_cast<PlainDoor*>(door);
+                    byId[door->fields.Id] = plain;
+                    bool restoreOpen = plain->fields.Open;
+                    SystemTypes__Enum otherRoom{};
+                    if (RoomForDoor(door, otherRoom) && Contains(State.pinnedDoors, otherRoom)) restoreOpen = false;
+                    physical.push_back({ door->fields.Id, restoreOpen, plain == doors[0] || plain == doors[1] });
+                }
+                const auto plan = PlanClientRequest(open, physical);
+                if (!plan.valid) return false;
+                // This is the original official utility's client RPC path, not
+                // ShipStatus Data spoofing. The real host retains authority over
+                // decon cycle timing, so an active cycle can override the result.
+                if (plan.closeRoom) app::ShipStatus_RpcCloseDoorsOfType(ship, physicalRoom, nullptr);
+                for (unsigned i = 0; i < plan.count; ++i) {
+                    app::ShipStatus_RpcUpdateSystem(ship, SystemTypes__Enum::Doors,
+                        static_cast<uint8_t>(plan.openIds[i] | 64), nullptr);
+                    app::PlainDoor_SetDoorway(byId[plan.openIds[i]], true, nullptr);
+                }
+                SetPair(doors, open, [](PlainDoor* door, bool value) {
+                    app::PlainDoor_SetDoorway(door, value, nullptr);
+                });
+                return true;
+            }
             bool Apply(bool open) const {
+                if (!IsHost()) return RequestClient(open);
                 uint8_t value = 0;
                 float duration = 0.f;
                 il2cpp_field_set_value(system, state, &value);
@@ -178,10 +217,6 @@ namespace PolusDecon {
     }
     bool CanControl(SystemTypes__Enum room, bool notify) {
         if (State.PanicMode) return false;
-        if (!IsHost()) {
-            if (notify) Toasts::AddToast("Decontamination", "You must be the host to control decontamination.");
-            return false;
-        }
         if (IsInMultiplayerGame() && (!Game::pAmongUsClient || !*Game::pAmongUsClient)) return false;
         Chamber chamber;
         if (Resolve(room, chamber)) return true;
@@ -189,7 +224,7 @@ namespace PolusDecon {
         return false;
     }
     bool IsHardPinned(SystemTypes__Enum room) {
-        return !State.PanicMode && IsHost() && IsGroup(room) && Contains(State.pinnedDoors, room);
+        return !State.PanicMode && IsGroup(room) && Contains(State.pinnedDoors, room);
     }
     bool RoomForDoor(OpenableDoor* door, SystemTypes__Enum& room) {
         if (!door || State.mapType != Settings::MapType::Pb) return false;
@@ -212,7 +247,7 @@ namespace PolusDecon {
         return RoomForDoor(door, room) && IsHardPinned(room);
     }
     bool SetOpen(SystemTypes__Enum room, bool open) {
-        if (!CanControl(room, true) || (open && IsHardPinned(room))) return false;
+        if (!CanControl(room, true) || (open && Contains(State.pinnedDoors, room))) return false;
         Chamber chamber;
         if (!Resolve(room, chamber)) return false;
         Reset(room);
@@ -220,17 +255,27 @@ namespace PolusDecon {
         return true;
     }
     void UpdatePins() {
-        if (State.PanicMode || State.mapType != Settings::MapType::Pb || !IsHost() ||
+        if (State.PanicMode || State.mapType != Settings::MapType::Pb ||
             !IsInGame() || State.InMeeting || State.InExileUI) { Reset(); return; }
         const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count();
         for (size_t i = 0; i < rooms.size(); ++i) {
             const bool hard = Contains(State.pinnedDoors, rooms[i]);
             const bool soft = Contains(State.softPinnedDoors, rooms[i]);
-            if (!hard && !soft) { timers[i].Reset(); continue; }
+            if (!hard && !soft) { timers[i].Reset(); lastClientClose[i] = -1; continue; }
             Chamber chamber;
             if (!Resolve(rooms[i], chamber)) { timers[i].Reset(); continue; }
-            if (timers[i].Update(hard, soft, chamber.StateValue(), chamber.DoorStates(), now)) {
+            // Match ordinary non-host hard pins: pulse every 50 ms even when
+            // the local door is already closed, and wait for the RPC queue.
+            if (!IsHost() && hard) {
+                if (ClientHardPinDue(now, lastClientClose[i], State.rpcQueue.empty())) {
+                    chamber.Apply(false);
+                    lastClientClose[i] = now;
+                }
+                timers[i].Reset();
+                continue;
+            }
+            if (timers[i].Update(hard, soft, IsHost() ? chamber.StateValue() : 0, chamber.DoorStates(), now)) {
                 chamber.Apply(false);
                 timers[i].Reset();
             }
@@ -238,7 +283,11 @@ namespace PolusDecon {
     }
     void Reset(SystemTypes__Enum room) {
         const auto found = std::find(rooms.begin(), rooms.end(), room);
-        if (found != rooms.end()) timers[static_cast<size_t>(found - rooms.begin())].Reset();
+        if (found != rooms.end()) {
+            const auto index = static_cast<size_t>(found - rooms.begin());
+            timers[index].Reset();
+            lastClientClose[index] = -1;
+        }
     }
-    void Reset() { for (auto& timer : timers) timer.Reset(); }
+    void Reset() { for (auto& timer : timers) timer.Reset(); lastClientClose.fill(-1); }
 }

@@ -265,7 +265,7 @@ namespace PolusDecon {
             if (!hard && !soft) { timers[i].Reset(); lastClientClose[i] = -1; continue; }
             Chamber chamber;
             if (!Resolve(rooms[i], chamber)) { timers[i].Reset(); continue; }
-            // Match ordinary non-host hard pins: pulse every 50 ms even when
+            // Decontamination non-host hard pins pulse every 30 ms even when
             // the local door is already closed, and wait for the RPC queue.
             if (!IsHost() && hard) {
                 if (ClientHardPinDue(now, lastClientClose[i], State.rpcQueue.empty())) {

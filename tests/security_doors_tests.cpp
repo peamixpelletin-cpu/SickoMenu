@@ -90,8 +90,8 @@ int main() {
     Expect(PolusDecon::PlanClientRequest(true, physical).valid, false, "missing second selected door rejected");
     std::cout << "Non-host decontamination request tests passed (16 scenarios).\n";
     Expect(PolusDecon::ClientHardPinDue(0, -1, true), true, "hard pin sends immediately");
-    Expect(PolusDecon::ClientHardPinDue(49, 0, true), false, "hard pin waits until 50ms");
-    Expect(PolusDecon::ClientHardPinDue(50, 0, true), true, "hard pin pulses at 50ms even if locally closed");
+    Expect(PolusDecon::ClientHardPinDue(29, 0, true), false, "hard pin waits until 30ms");
+    Expect(PolusDecon::ClientHardPinDue(30, 0, true), true, "hard pin pulses at 30ms even if locally closed");
     Expect(PolusDecon::ClientHardPinDue(100, 0, false), false, "hard pin waits for RPC queue to drain");
     Expect(PolusDecon::ClientHardPinDue(101, 0, true), true, "hard pin resumes when queue drains");
     std::cout << "Decontamination hard-pin cadence tests passed (5 scenarios).\n";
